@@ -1682,7 +1682,7 @@ const ACT = {
   toggleCidade:d => { const c = S.cidades.find(x => x.id === d.id); c && Store.update('cidades', c.id, {ativa:c.ativa === false}); },
   delCidade:async d => { const c = S.cidades.find(x => x.id === d.id); if (c && await confirmar(`Remover <b>${esc(c.nome)}</b> das cidades atendidas?`, 'Remover')){ await Store.del('cidades', c.id); toast('Cidade removida'); } },
   conta:() => contaModal(),
-  authTab:d => { S.authTab = d.v; S.authErr = ''; renderPass(); },
+  authTab:d => { S.authTab = d.v; S.authErr = ''; renderAll(); },
   loginGoogle:() => loginGoogle(),
   resetSenha:() => resetSenha(),
   jaConfirmei:async () => { try{ await S.user.reload(); await S.user.getIdToken(true); S.user = Store.auth.currentUser; }catch(e){} if (!S.user.emailVerified){ S.authErr = 'Ainda não recebemos a confirmação. Abra o link no seu e-mail e tente de novo.'; } else { S.authErr = ''; S.role = null; } renderAll(); },
