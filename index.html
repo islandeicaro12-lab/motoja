@@ -257,6 +257,13 @@ label.f > span{font-weight:400;color:var(--cinza);font-size:12.5px}
 #destAC gmp-place-autocomplete{width:100%}
 a.btn{text-decoration:none}
 
+/* ============ PIX ============ */
+.pixcard{background:linear-gradient(180deg,#EAF7F4,#F6FBFA);border:1.5px solid #9ED9CC;border-radius:16px;padding:14px;text-align:left}
+.pixcard > .row b:first-child{color:#0B6E5F;font-family:var(--f-disp);font-size:16px}
+.pixval{font-family:var(--f-disp);font-size:20px;font-weight:800}
+.pixcard .linkbtn{display:block;margin:10px auto 0}
+.qrbox{display:grid;place-items:center;min-height:260px;background:#fff;border:1px solid var(--linha);border-radius:16px;padding:12px}
+.qrbox img,.qrbox canvas{width:240px;height:240px;image-rendering:pixelated}
 /* ============ DASHBOARDS ============ */
 .boletim{position:relative;overflow:hidden;background:linear-gradient(135deg,var(--cana) 0%,var(--cana-esc) 100%);color:#fff;border-radius:22px;padding:16px 16px 14px;box-shadow:var(--sombra);isolation:isolate}
 .boletim::after{content:"";position:absolute;z-index:-1;right:-70px;top:70px;width:150px;height:260px;transform:rotate(28deg);opacity:.55;
@@ -1215,10 +1222,10 @@ function rideSheet(r){
     const lbl = r.status === 'aceita' ? 'Piloto a caminho' : 'Em viagem ao destino';
     return `<div class="row between"><span class="tag b pulse">● ${lbl}</span>${r.demo ? '<span class="tag">🧪 demonstração</span>' : `<span class="tag" id="gpsTag">📡 GPS do piloto</span>`}</div>
       <div class="eta mt" id="etaTxt">…</div>
-      <div class="hr"></div>${driverCard(r)}<div class="hr"></div>${tripBox(r)}
+      <div class="hr"></div>${driverCard(r)}<div class="hr"></div>${tripBox(r)}${pixCard(r)}
       ${r.status === 'aceita' ? `<button class="btn danger block mt" data-act="cancelar">Cancelar corrida</button>` : ''}`;
   }
-  if (r.status === 'concluida') return `<div style="text-align:center"><div style="font-size:44px">🏁</div><h2>Você chegou!</h2><p class="muted small mt">Corrida com ${esc(r.pilotoNome || 'seu piloto')} finalizada.</p><div class="eta mt">${BRL(r.valor)}</div><p class="small muted">${esc(r.pagamento)}</p>
+  if (r.status === 'concluida') return `<div style="text-align:center"><div style="font-size:44px">🏁</div><h2>Você chegou!</h2><p class="muted small mt">Corrida com ${esc(r.pilotoNome || 'seu piloto')} finalizada.</p><div class="eta mt">${BRL(r.valor)}</div><p class="small muted">${esc(r.pagamento)}</p></div>${pixCard(r)}<div style="text-align:center">
     <p class="small mt">Avalie seu piloto</p><div class="stars">${[1,2,3,4,5].map(n => `<button class="${(r.avaliacao || 0) >= n ? 'on' : ''}" data-act="rate" data-n="${n}">⭐</button>`).join('')}</div></div>
     <button class="btn block mt" data-act="nova">Nova corrida</button>`;
   return `<div style="text-align:center"><div style="font-size:44px">🚫</div><h2>Corrida cancelada</h2><p class="muted small mt">${r.canceladaPor === 'passageiro' ? 'Você cancelou esta corrida.' : 'A corrida foi cancelada.'}</p></div><button class="btn block mt" data-act="nova">Pedir outra corrida</button>`;
@@ -1302,6 +1309,9 @@ function pilotoEmpresaHtml(me){
   return bannerClientes(e).replace('Mande este link para os passageiros.', 'Mande este link para os seus passageiros.') + `<div class="card">
     <div class="row" style="gap:12px">${logoEmp(e, 52)}<div><h3>${esc(e.nome)}</h3><div class="small muted">${esc(docTexto(e))}</div></div></div>
     <dl class="kv mt"><dt>Telefone</dt><dd>${fone ? `<a href="tel:${esc(fone)}" style="color:var(--cana)">${esc(e.telefone)}</a>` : '—'}</dd><dt>Cidade</dt><dd>${esc(e.cidade || '—')}</dd>${e.responsavel ? `<dt>Responsável</dt><dd>${esc(e.responsavel)}</dd>` : ''}
+      <dt>Pix da empresa</dt><dd>${e.pix ? `${esc(pixMostra(e.pix))} <span class="muted small">(${esc(pixTipoNome(e.pix.tipo))})</span>` : '—'}</dd>
+      <dt>Meu Pix</dt><dd>${me.pix ? `${esc(pixMostra(me.pix))} <span class="muted small">(${esc(pixTipoNome(me.pix.tipo))})</span>` : 'não cadastrado — peça para a empresa'}</dd>
+      <dt>Pix das corridas</dt><dd>${e.pixDestino === 'empresa' ? 'vai para a chave da empresa' : 'vai para a sua chave'}</dd>
       <dt>Distribuição</dt><dd>${e.distribuicao === 'vez' ? `Por vez — você tem ${num(e.tempoOferta, 30)} s para aceitar` : 'Por escolha — o primeiro piloto que aceitar leva'}</dd></dl>
     <div class="hr"></div><h3>Tarifas</h3>
     <div class="dash mt" style="grid-template-columns:repeat(3,1fr)"><div class="stat"><b>${BRL(e.tarifaBase)}</b><span>bandeirada</span></div><div class="stat"><b>${BRL(e.porKm)}</b><span>por km</span></div><div class="stat"><b>${BRL(e.minima)}</b><span>mínima</span></div></div>
@@ -1358,7 +1368,7 @@ function renderPiloto(){
     b = `<div class="card"><div class="row between"><span class="tag b">● ${act.status === 'aceita' ? 'Indo buscar o passageiro' : 'Levando ao destino'}</span><b>${BRL(act.valor)}</b></div>
       <div class="eta mt" id="pEtaTxt">…</div>
       <div class="kv mt"><dt>Passageiro</dt><dd>${esc(act.passageiro && act.passageiro.nome)}</dd>${act.passageiro && act.passageiro.tel ? `<dt>Telefone</dt><dd><a href="tel:${esc(act.passageiro.tel.replace(/[^\d+]/g, ''))}" style="color:var(--brand)">${esc(act.passageiro.tel)}</a></dd>` : ''}<dt>Pagamento</dt><dd>${esc(act.pagamento)}</dd></div>
-      ${tripBox(act)}
+      ${tripBox(act)}${pixCard(act, true)}
       <a class="btn ghost block mt" href="${navUrl}" target="_blank" rel="noopener">🧭 Abrir navegação no Google Maps</a>
       ${act.status === 'aceita' ? `<button class="btn ok block mt" data-act="embarcou">✅ Passageiro embarcou</button><button class="btn ghost block mt" data-act="desistir">Desistir da corrida</button>` : `<button class="btn block mt" data-act="finalizar">🏁 Finalizar corrida</button>`}</div>`;
   } else if (me){
@@ -1465,7 +1475,7 @@ function renderAdmin(){
     else h += `<div class="list">${EMP.slice().sort((a, b) => (a.nome || '').localeCompare(b.nome || '')).map(e => {
       const ps = PIL.filter(p => p.empresaId === e.id); const on = ps.filter(p => p.online).length;
       return `<div class="card"><div class="row">${logoEmp(e)}<div style="flex:1;min-width:0"><b>${esc(e.nome)}</b><div class="small muted">${esc([e.cidade, e.telefone].filter(Boolean).join(' · '))}</div></div></div>
-        <div class="row wrap mt" style="gap:6px"><span class="tag">Bandeirada ${BRL(e.tarifaBase)}</span><span class="tag">${BRL(e.porKm)}/km</span><span class="tag">Mínima ${BRL(e.minima)}</span><span class="tag y">${e.distribuicao === 'vez' ? `🔁 Por vez (${num(e.tempoOferta, 30)}s)` : '🙋 Por escolha'}</span><span class="tag ${on ? 'on' : ''}">🏍️ ${ps.length} piloto${ps.length === 1 ? '' : 's'} · ${on} online</span></div>
+        <div class="row wrap mt" style="gap:6px"><span class="tag">Bandeirada ${BRL(e.tarifaBase)}</span><span class="tag">${BRL(e.porKm)}/km</span><span class="tag">Mínima ${BRL(e.minima)}</span><span class="tag y">${e.distribuicao === 'vez' ? `🔁 Por vez (${num(e.tempoOferta, 30)}s)` : '🙋 Por escolha'}</span><span class="tag ${e.pix ? 'on' : ''}">⚡ ${e.pix ? 'Pix: ' + esc(pixMostra(e.pix)) : 'sem chave Pix'}</span><span class="tag ${on ? 'on' : ''}">🏍️ ${ps.length} piloto${ps.length === 1 ? '' : 's'} · ${on} online</span></div>
         ${docTexto(e) || e.responsavel ? `<div class="small muted mt">${esc([docTexto(e), e.responsavel && 'Resp.: ' + e.responsavel].filter(Boolean).join(' · '))}</div>` : ''}
         ${ehEmpresa() ? '' : `<div class="small mt" style="color:${e.uid ? 'var(--ok-ink)' : 'var(--warn-ink)'}">${e.uid ? `🔑 Acesso: ${esc(e.emailAcesso || '')}` : '⚠ Sem acesso ao app — edite para criar e-mail e senha'}</div>`}
         <div class="row mt" style="gap:8px"><button class="btn sm" data-act="novoPiloto" data-emp="${esc(e.id)}">＋ Piloto</button><button class="btn ghost sm" data-act="verPilotos" data-emp="${esc(e.id)}">Ver pilotos</button><span style="flex:1"></span><button class="btn ghost sm" data-act="editEmpresa" data-id="${esc(e.id)}">Editar</button>${ehEmpresa() ? '' : `<button class="btn danger sm" data-act="delEmpresa" data-id="${esc(e.id)}" aria-label="Excluir">🗑</button>`}</div></div>`; }).join('')}</div>`;
@@ -1483,6 +1493,7 @@ function renderAdmin(){
       else h += `<div class="list">${ps.map(p => { const m = p.moto || {}; const e = emp(p.empresaId); const busy = ocupado(p.id);
         return `<div class="card"><div class="driver"><img class="avatar" src="${safeImg(p.foto, p.nome)}" alt=""><div style="flex:1;min-width:0"><div class="row between"><b>${esc(p.nome)}</b><span class="tag ${busy ? 'b' : p.online ? 'on' : ''}">${busy ? 'em corrida' : p.online ? '● online' : 'offline'}</span></div>
           <div class="small muted">${esc(e ? e.nome : '—')}${p.telefone ? ' · ' + esc(p.telefone) : ''}${p.cpf ? ' · CPF ' + esc(p.cpf) : ''}</div>
+          <div class="small" style="color:${p.pix ? 'var(--text)' : 'var(--muted)'}">⚡ ${p.pix ? `Pix (${esc(pixTipoNome(p.pix.tipo))}): ${esc(pixMostra(p.pix))}` : 'sem chave Pix'}</div>
           <div class="small mt" style="color:${p.acessoCriado || p.uid ? 'var(--ok-ink)' : 'var(--warn-ink)'}">${p.email ? `🔑 ${esc(p.email)} · ${p.acessoCriado ? 'acesso com senha criado' : p.uid ? 'já entrou no app' : 'sem senha — edite para criar o acesso'}` : '⚠ sem acesso — edite para criar e-mail e senha'}</div>
           <div class="row mt small" style="gap:8px;flex-wrap:wrap"><span class="sw" style="background:${corHex(m.cor)}"></span><span>${esc([m.marca, m.modelo, m.ano].filter(Boolean).join(' '))} · ${esc(m.cor || '')}</span><span class="plate" style="font-size:11px;padding:2px 6px;border-top-width:3px">${esc(m.placa || '')}</span></div></div></div>
           <div class="row end mt" style="gap:8px"><button class="btn sm" data-act="convitePiloto" data-id="${esc(p.id)}" ${p.email ? '' : 'disabled'}>Convidar</button><span style="flex:1"></span><button class="btn ghost sm" data-act="editPiloto" data-id="${esc(p.id)}">Editar</button><button class="btn danger sm" data-act="delPiloto" data-id="${esc(p.id)}" aria-label="Excluir">🗑</button></div></div>`; }).join('')}</div>`;
@@ -1816,6 +1827,91 @@ function fmtDoc(tipo, v){ const d = soDig(v);
   if (tipo === 'cpf') return d.slice(0, 11).replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
   return d.slice(0, 14).replace(/^(\d{2})(\d)/, '$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3').replace(/\.(\d{3})(\d)/, '.$1/$2').replace(/(\d{4})(\d)/, '$1-$2'); }
 const docTexto = e => { const t = e.docTipo || (e.cnpj ? 'cnpj' : ''); const v = e.documento || e.cnpj || ''; return v ? `${t === 'cpf' ? 'CPF' : 'CNPJ'} ${v}` : ''; };
+/* ================= PIX ================= */
+const PIX_TIPOS = [['cpf','CPF'],['cnpj','CNPJ'],['telefone','Telefone'],['email','E-mail'],['aleatoria','Chave aleatória']];
+const semAcento = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9 ]/g, '').toUpperCase().trim();
+/* normaliza e valida a chave; devolve null se inválida */
+function pixNormaliza(tipo, v){
+  v = String(v || '').trim(); const d = soDig(v);
+  if (tipo === 'cpf') return cpfValido(d) ? d : null;
+  if (tipo === 'cnpj') return cnpjValido(d) ? d : null;
+  if (tipo === 'telefone'){ const n = d.replace(/^55(?=\d{10,11}$)/, ''); return /^\d{10,11}$/.test(n) ? '+55' + n : null; }
+  if (tipo === 'email') return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v) ? v.toLowerCase() : null;
+  if (tipo === 'aleatoria') return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v) ? v.toLowerCase() : null;
+  return null;
+}
+function pixMostra(px){
+  if (!px || !px.chave) return '';
+  const k = px.chave;
+  if (px.tipo === 'cpf') return fmtDoc('cpf', k); if (px.tipo === 'cnpj') return fmtDoc('cnpj', k);
+  if (px.tipo === 'telefone'){ const n = k.replace('+55', ''); return `(${n.slice(0, 2)}) ${n.slice(2, -4)}-${n.slice(-4)}`; }
+  return k;
+}
+const pixTipoNome = t => (PIX_TIPOS.find(x => x[0] === t) || ['', 'Chave'])[1];
+function crc16(str){ let c = 0xFFFF; for (let i = 0; i < str.length; i++){ c ^= str.charCodeAt(i) << 8; for (let j = 0; j < 8; j++) c = c & 0x8000 ? (c << 1) ^ 0x1021 : c << 1; c &= 0xFFFF; } return c.toString(16).toUpperCase().padStart(4, '0'); }
+/* "Pix copia e cola" (BR Code estático do Banco Central) com o valor da corrida */
+function pixCopiaCola(px, valor, txid){
+  const f = (id, v) => id + String(v.length).padStart(2, '0') + v;
+  const conta = f('00', 'br.gov.bcb.pix') + f('01', px.chave);
+  let p = f('00', '01') + f('26', conta) + f('52', '0000') + f('53', '986') + (valor > 0 ? f('54', Number(valor).toFixed(2)) : '') + f('58', 'BR')
+    + f('59', (semAcento(px.nome) || 'RECEBEDOR').slice(0, 25)) + f('60', (semAcento(px.cidade) || 'NAZARE DA MATA').slice(0, 15))
+    + f('62', f('05', (String(txid || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 25)) || '***')) + '6304';
+  return p + crc16(p);
+}
+/* para quem vai o Pix da corrida: piloto ou empresa (escolha da empresa); se faltar a chave, usa a outra */
+function pixDaCorrida(r){
+  const e = emp(r.empresaId), pl = pil(r.pilotoId);
+  const ke = e && e.pix && e.pix.chave ? {...e.pix, nome:e.pix.nome || e.nome, cidade:e.cidade, de:'empresa', quem:e.nome} : null;
+  const kp = pl && pl.pix && pl.pix.chave ? {...pl.pix, nome:pl.pix.nome || pl.nome, cidade:e && e.cidade, de:'piloto', quem:pl.nome} : null;
+  return (e && e.pixDestino === 'empresa') ? ke || kp : kp || ke;
+}
+function pixCampos(px, titulo, ajuda){
+  px = px || {};
+  return `<div class="hr" style="margin:4px 0"></div><h3>${titulo}</h3><p class="small muted" style="margin-top:-6px">${ajuda}</p>
+    <div class="grid2" style="grid-template-columns:1fr 1.6fr"><label class="f">Tipo da chave<select class="input" name="pixTipo"><option value="">Sem Pix</option>${PIX_TIPOS.map(([k, l]) => `<option value="${k}" ${px.tipo === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+      <label class="f">Chave Pix<input class="input" name="pixChave" maxlength="80" value="${esc(pixMostra(px))}" placeholder="digite a chave" autocomplete="off"></label></div>
+    <label class="f">Nome do titular da conta<input class="input" name="pixNome" maxlength="40" value="${esc(px.nome || '')}" placeholder="como aparece no banco"></label>`;
+}
+/* lê os campos do formulário; devolve {pix} ou {erro} */
+function pixLer(fd){
+  const tipo = String(fd.get('pixTipo') || ''), bruto = String(fd.get('pixChave') || '').trim(), nome = String(fd.get('pixNome') || '').trim();
+  if (!tipo && !bruto) return {pix:null};
+  if (!tipo) return {erro:'Escolha o tipo da chave Pix.'};
+  const chave = pixNormaliza(tipo, bruto);
+  if (!chave) return {erro:`Chave Pix inválida para o tipo ${pixTipoNome(tipo)}. Confira.`};
+  return {pix:{tipo, chave, nome:nome.slice(0, 40)}};
+}
+/* cartão de pagamento Pix (passageiro e piloto) */
+function pixCard(r, paraPiloto){
+  if (r.pagamento !== 'Pix' || r.demo) return '';
+  const px = pixDaCorrida(r);
+  if (!px) return paraPiloto ? `<div class="pixcard mt"><b>⚡ Pagamento por Pix</b><p class="small mt">Nenhuma chave Pix cadastrada para você nem para a empresa. Peça para a empresa cadastrar.</p></div>` : `<div class="pixcard mt"><b>⚡ Pagamento por Pix</b><p class="small mt">Combine a chave Pix com o piloto na hora do pagamento.</p></div>`;
+  return `<div class="pixcard mt"><div class="row between"><b>⚡ ${paraPiloto ? 'O passageiro paga por Pix' : 'Pague por Pix'}</b><b class="pixval">${BRL(r.valor)}</b></div>
+    <dl class="kv mt"><dt>Para</dt><dd>${esc(px.nome)}${px.de === 'empresa' ? '' : ' (piloto)'}</dd><dt>${esc(pixTipoNome(px.tipo))}</dt><dd style="word-break:break-all">${esc(pixMostra(px))}</dd></dl>
+    <div class="grid2 mt"><button class="btn ghost sm" data-act="pixCopiar" data-id="${esc(r.id)}" data-v="chave">Copiar chave</button><button class="btn sm" data-act="pixCopiar" data-id="${esc(r.id)}" data-v="cc">Pix copia e cola</button></div>
+    <button class="linkbtn" data-act="pixQr" data-id="${esc(r.id)}">${paraPiloto ? 'Mostrar QR Code para o passageiro' : 'Mostrar QR Code'}</button></div>`;
+}
+let qrLib = null;
+function carregarQr(){ return qrLib || (qrLib = new Promise((res, rej) => { if (window.QRCode) return res(); const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'; s.onload = res; s.onerror = () => { qrLib = null; rej(); }; document.head.appendChild(s); })); }
+async function pixQrModal(id){
+  const r = S.corridas.find(x => x.id === id) || (S.minhaLocal && S.minhaLocal.id === id ? S.minhaLocal : null); if (!r) return;
+  const px = pixDaCorrida(r); if (!px) return;
+  const cc = pixCopiaCola(px, r.valor, 'MOTOJA' + r.id);
+  openModal(`<div class="row between"><h3>⚡ Pix · ${BRL(r.valor)}</h3><button class="xbtn" data-act="closeModal" aria-label="Fechar">✕</button></div>
+    <p class="small muted mt">Abra o app do banco, escolha <b style="color:var(--text)">Pix → Ler QR Code</b> e aponte a câmera.</p>
+    <div id="qrBox" class="qrbox mt"><div class="spinner"></div></div>
+    <p class="small mt" style="text-align:center"><b>${esc(px.nome)}</b><br><span class="muted">${esc(pixTipoNome(px.tipo))}: ${esc(pixMostra(px))}</span></p>
+    <button class="btn block mt" data-act="pixCopiar" data-id="${esc(r.id)}" data-v="cc">Copiar Pix copia e cola</button>`, async c => {
+      try{ await carregarQr(); const box = c.querySelector('#qrBox'); box.innerHTML = ''; new window.QRCode(box, {text:cc, width:240, height:240, correctLevel:window.QRCode.CorrectLevel.M}); }
+      catch(e){ c.querySelector('#qrBox').innerHTML = '<p class="small muted">Sem internet para gerar o QR Code. Use o “Pix copia e cola”.</p>'; }
+    });
+}
+function copiarTexto(t, ok){
+  const fim = () => toast(ok);
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(fim, () => fallback());
+  else fallback();
+  function fallback(){ const ta = document.createElement('textarea'); ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); try{ document.execCommand('copy'); fim(); }catch(e){ toast('Não consegui copiar'); } ta.remove(); }
+}
 /* cria a conta de acesso sem desconectar quem está logado (usa uma 2ª instância do Firebase) */
 async function criarLoginSecundario(email, senha){
   if (Store.mode !== 'cloud' || !Store.authMod) return 'local-' + uid();
@@ -2028,6 +2124,10 @@ function empresaForm(id){
           <option value="vez" ${v.distribuicao === 'vez' ? 'selected' : ''}>Por vez — fila, um piloto de cada vez</option></select></label>
         <label class="f">Tempo p/ aceitar<select class="input" name="tempoOferta">${[20, 30, 45, 60, 90].map(s => `<option value="${s}" ${num(v.tempoOferta, 30) === s ? 'selected' : ''}>${s} s</option>`).join('')}</select></label></div>
       <p class="small muted" style="margin-top:-4px">Por vez: a corrida toca só para o piloto que está há mais tempo esperando. Se ele recusar ou não responder no tempo, passa para o próximo. Se ninguém da fila aceitar, ela é aberta para todos.</p>
+      ${pixCampos(v.pix, 'Chave Pix da empresa', 'Os passageiros que pagam por Pix veem esta chave na corrida.')}
+      <label class="f">Pix das corridas vai para<select class="input" name="pixDestino">
+        <option value="piloto" ${v.pixDestino !== 'empresa' ? 'selected' : ''}>A chave do piloto (se ele não tiver, a da empresa)</option>
+        <option value="empresa" ${v.pixDestino === 'empresa' ? 'selected' : ''}>A chave da empresa</option></select></label>
       <div style="display:flex;flex-direction:column;gap:6px;font-size:13.5px;font-weight:700">Cor da marca <span class="small muted" style="font-weight:400">Escolhida automaticamente pela logo — você pode trocar.</span><div class="colors" id="coresEmp">${(EMP_CORES.includes(v.cor) || !v.cor ? [] : [v.cor]).concat(EMP_CORES).map(c => `<label><input type="radio" name="cor" value="${c}" ${c === v.cor ? 'checked' : ''}><span class="sw" style="background:${c};width:18px;height:18px"></span></label>`).join('')}<label title="Outra cor"><input type="radio" name="cor" value="custom"><input type="color" id="corLivre" value="${safeColor(v.cor)}" style="width:26px;height:22px;border:0;background:none;padding:0;cursor:pointer"></label></div></div>
       <div class="authErr" id="empErr" style="display:none"></div>
       <div class="grid2 mt"><button type="button" class="btn ghost" data-act="closeModal">Cancelar</button><button class="btn" id="empSalvar">${e ? 'Salvar' : 'Cadastrar empresa'}</button></div>
@@ -2059,7 +2159,8 @@ function empresaForm(id){
         const d = {nome:String(fd.get('nome')).trim(), telefone:String(fd.get('telefone')).trim(), docTipo:tipo, documento, cnpj:tipo === 'cnpj' ? documento : '',
           cidade:String(fd.get('cidade')).trim(), responsavel:String(fd.get('responsavel')).trim(),
           tarifaBase:num(fd.get('tarifaBase'), 5), porKm:num(fd.get('porKm'), 2.5), minima:num(fd.get('minima'), 0), cor:(fd.get('cor') === 'custom' ? c.querySelector('#corLivre').value : fd.get('cor')) || '#0E6B45',
-          distribuicao:fd.get('distribuicao') === 'vez' ? 'vez' : 'escolha', tempoOferta:num(fd.get('tempoOferta'), 30)};
+          distribuicao:fd.get('distribuicao') === 'vez' ? 'vez' : 'escolha', tempoOferta:num(fd.get('tempoOferta'), 30), pixDestino:fd.get('pixDestino') === 'empresa' ? 'empresa' : 'piloto'};
+        const pxE = pixLer(fd); if (pxE.erro){ erro(pxE.erro); return; } d.pix = pxE.pix;
         if (!d.nome || !d.telefone){ erro('Preencha o nome e o telefone da empresa.'); return; }
         if (tipo === 'cpf' ? !cpfValido(documento) : !cnpjValido(documento)){ erro(`${tipo === 'cpf' ? 'CPF' : 'CNPJ'} inválido. Confira os números.`); return; }
         const outro = S.empresas.find(x => x.id !== (e && e.id) && soDig(x.documento || x.cnpj) === soDig(documento));
@@ -2130,6 +2231,7 @@ function pilotoForm(id, empId){
       : `<label class="f">E-mail de acesso *<input class="input" name="email" type="email" required maxlength="80" value="${esc(v.email || '')}" placeholder="piloto@gmail.com" autocomplete="off"></label>
         <label class="f">Senha de acesso *<input class="input" name="senha" type="text" ${p && p.uid ? '' : 'required'} minlength="6" maxlength="40" placeholder="mínimo 6 caracteres" autocomplete="new-password"><span style="font-weight:500">${p && p.uid ? 'Este piloto já entrou pelo Google ou criou a própria senha. Deixe em branco para manter assim.' : 'Passe o e-mail e a senha para o piloto. Depois de entrar, ele pode trocar a senha em Minha conta.'}</span></label>`}
       <p class="small" id="pilErr" style="display:none;color:var(--danger-ink);font-weight:700"></p>
+      ${pixCampos(v.pix, 'Chave Pix do piloto', 'Onde o piloto recebe os pagamentos por Pix das corridas.')}
       <div class="hr" style="margin:4px 0"></div><h3>Dados da moto</h3>
       <div class="grid2"><label class="f">Marca *<select class="input" name="marca">${MARCAS.map(x => `<option ${x === m.marca ? 'selected' : ''}>${x}</option>`).join('')}</select></label><label class="f">Modelo *<input class="input" name="modelo" required maxlength="40" value="${esc(m.modelo)}" placeholder="Ex.: CG 160 Titan"></label></div>
       <div class="grid2"><label class="f">Placa *<input class="input" name="placa" required maxlength="8" value="${esc(m.placa)}" placeholder="ABC1D23" style="text-transform:uppercase;letter-spacing:.1em;font-weight:700"></label><label class="f">Ano<input class="input" name="ano" inputmode="numeric" maxlength="4" value="${esc(m.ano)}" placeholder="2023"></label></div>
@@ -2162,6 +2264,7 @@ function pilotoForm(id, empId){
           moto:{marca:f.get('marca'), modelo:f.get('modelo').trim(), ano:f.get('ano').trim(), cor:f.get('cor') || 'Preta', placa},
           online:p ? !!p.online : false, criadoEm:p ? p.criadoEm || Date.now() : Date.now()};
         if (!d.nome || !d.telefone || !d.moto.modelo || !d.empresaId){ erro('Preencha os campos obrigatórios'); return; }
+        const pxP = pixLer(f); if (pxP.erro){ erro(pxP.erro); return; } d.pix = pxP.pix;
         const btn = ev.target.querySelector('button.btn:not(.ghost)'); btn.disabled = true; btn.textContent = 'Salvando…';
         const pid = p ? p.id : uid();
         try{
@@ -2281,6 +2384,9 @@ const ACT = {
   ePer:d => { S.ePer = d.v; renderAdmin(); },
   eOrd:d => { S.eOrd = d.v; renderAdmin(); },
   pilotoDetalhe:d => pilotoDetalheModal(d.id),
+  pixQr:d => pixQrModal(d.id),
+  pixCopiar:d => { const r = S.corridas.find(x => x.id === d.id) || (S.minhaLocal && S.minhaLocal.id === d.id ? S.minhaLocal : null); const px = r && pixDaCorrida(r); if (!px) return;
+    d.v === 'cc' ? copiarTexto(pixCopiaCola(px, r.valor, 'MOTOJA' + r.id), 'Pix copia e cola copiado! Cole no app do banco.') : copiarTexto(px.chave, 'Chave Pix copiada!'); },
   pPer:d => { S.pPer = d.v; renderAll(); },
   pFiltro:d => { S.pFiltro = d.v; renderAll(); },
   verPilotos:d => { S.filtroEmp = d.emp; S.admTab = 'pilotos'; renderAdmin(); },
@@ -2615,6 +2721,7 @@ function contaModal(){
     openModal(`<div class="row between"><h3>${S.role === 'master' ? '👑 Conta master' : 'Minha conta de piloto'}</h3><button class="xbtn" data-act="closeModal" aria-label="Fechar">✕</button></div>
       <div class="driver mt"><img class="avatar lg" src="${me ? safeImg(me.foto, me.nome) : avatarFor('M', '#0E6B45')}" alt=""><div><b style="font-size:17px">${esc(me ? me.nome : (S.user.displayName || 'Administrador'))}</b><div class="small muted">${esc(userEmail())}</div>${e ? `<div class="small muted">${esc(e.nome)}</div>` : ''}</div></div>
       ${me ? `<p class="note mt">Seus dados (foto, CPF, moto, placa) são atualizados pela sua empresa. Peça a ela se precisar mudar algo.</p>` : `<p class="note mt">Você tem acesso total: empresas, pilotos, clientes e corridas. Também pode testar o app pela aba <b>Passageiro</b>.</p>`}
+      ${me ? `<dl class="kv mt"><dt>CPF</dt><dd>${esc(me.cpf || '—')}</dd><dt>Minha chave Pix</dt><dd>${me.pix ? `${esc(pixMostra(me.pix))} <span class="muted small">(${esc(pixTipoNome(me.pix.tipo))})</span>` : 'não cadastrada'}</dd></dl>` : ''}
       ${me && temSenha() ? `<div class="hr"></div><h3>Trocar senha</h3>
         <form id="fSenha" class="col mt"><label class="f">Senha atual<input class="input" name="atual" type="password" required autocomplete="current-password"></label>
         <div class="grid2"><label class="f">Nova senha<input class="input" name="nova" type="password" required minlength="6" autocomplete="new-password"></label><label class="f">Repita a nova senha<input class="input" name="nova2" type="password" required minlength="6" autocomplete="new-password"></label></div>
