@@ -1569,6 +1569,7 @@ function go(v){
   document.querySelectorAll('.view').forEach(x => x.classList.toggle('active', x.id === 'view-' + v));
   document.querySelectorAll('nav.bottom button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
   if (location.hash !== '#' + v){ try{ history.replaceState(null, '', '#' + v); }catch(e){} }
+  setTimeout(() => { [pmap, pilotMap].forEach(m => { try{ m && m.map && m.map.invalidateSize && m.map.invalidateSize(); }catch(e){} }); }, 60);
   renderAll();
 }
 window.addEventListener('hashchange', () => { const v = location.hash.slice(1); if (v && v !== S.view) go(v); });
