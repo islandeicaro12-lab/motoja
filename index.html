@@ -151,6 +151,15 @@ select.input{appearance:none;background-image:linear-gradient(45deg,transparent 
 .hr{height:1px;background:var(--line);margin:14px 0}
 
 .lmk{background:none;border:0}
+.authview{position:absolute;inset:0;z-index:8;background:radial-gradient(120% 60% at 50% 0%,#2a2410 0%,var(--bg) 60%);overflow:auto;padding:22px 18px 30px}
+.authcard{max-width:420px;margin:0 auto}
+.authlogo{width:64px;height:64px;border-radius:20px;background:var(--brand);display:grid;place-items:center;font-size:34px;margin:6px auto 14px;box-shadow:0 10px 30px #ffc40033}
+.gbtn{background:#fff;color:#1f1f1f}
+.or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;margin:16px 0}
+.or::before,.or::after{content:'';flex:1;height:1px;background:var(--line)}
+.linkbtn{background:none;border:0;color:var(--brand);font-weight:700;font-size:13px;cursor:pointer;padding:4px}
+.authErr{background:#3a1416;color:#fca5a5;border:1px solid #5b1d20;border-radius:12px;padding:10px 12px;font-size:13px}
+#contaBtn img{width:100%;height:100%;object-fit:cover}
 .map{z-index:0}
 .map .leaflet-top.leaflet-right{top:38%}
 .leaflet-bar a{background:#19191c;color:#f4f4f5;border-color:#2b2b30}
@@ -174,7 +183,7 @@ a.btn{text-decoration:none}
 <div id="app">
   <header class="top">
     <div class="brand"><span class="logo">🏍️</span><span>Moto<b>Já</b></span></div>
-    <div class="row" style="gap:8px"><span id="syncBadge" class="badge">carregando…</span><button class="iconbtn" data-act="setup" aria-label="Configurações">⚙️</button></div>
+    <div class="row" style="gap:8px"><span id="syncBadge" class="badge">carregando…</span><button class="iconbtn" id="contaBtn" data-act="conta" aria-label="Minha conta" style="display:none;padding:0;overflow:hidden"></button><button class="iconbtn" data-act="setup" aria-label="Configurações">⚙️</button></div>
   </header>
   <main>
     <section id="view-passageiro" class="view active">
@@ -194,6 +203,7 @@ a.btn{text-decoration:none}
         </div>
         <div class="sugs" id="sugs" style="display:none"></div>
       </div>
+      <div class="authview" id="authView" style="display:none"></div>
       <div class="sheet" id="sheet"><div class="grabzone" data-act="sheetToggle"><div class="grab"></div></div><div id="sheetBody"></div></div>
     </section>
     <section id="view-piloto" class="view">
@@ -490,7 +500,10 @@ const Store = {
       const V = '10.12.2';
       const app = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`);
       this.fs = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`);
-      this.db = this.fs.getFirestore(app.initializeApp(CFG.firebase));
+      const fbApp = app.initializeApp(CFG.firebase);
+      this.db = this.fs.getFirestore(fbApp);
+      try{ this.authMod = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-auth.js`); this.auth = this.authMod.getAuth(fbApp); this.auth.languageCode = 'pt'; }
+      catch(e){ console.error('auth', e); this.auth = null; }
       this.mode = 'cloud';
     }catch(e){ console.error(e); toast('Não consegui conectar ao Firebase — usando dados locais.'); }
   },
@@ -559,6 +572,8 @@ const ATIVOS = ['procurando','aceita','em_andamento'];
 const ocupado = pid => S.corridas.some(r => r.pilotoId === pid && (r.status === 'aceita' || r.status === 'em_andamento'));
 function myRide(){
   if (!S.minha) return null;
+  const f = S.corridas.find(r => r.id === S.minha);
+  if (f && S.user && f.clienteId && f.clienteId !== S.user.uid) return null;
   return S.corridas.find(r => r.id === S.minha) || (S.minhaLocal && S.minhaLocal.id === S.minha ? S.minhaLocal : null);
 }
 const pathCache = {};
@@ -721,6 +736,10 @@ function empresaOpts(km){
   }).sort((a, b) => (b.online > 0) - (a.online > 0) || a.preco - b.preco);
 }
 function renderPass(){
+  const gate = authGate();
+  $('#authView').style.display = gate === 'ok' ? 'none' : '';
+  renderContaBtn();
+  if (gate !== 'ok'){ patch($('#authView'), authHtml(gate)); return; }
   const body = $('#sheetBody'); const r = myRide();
   $('#sheet').classList.toggle('min', !!S.sheetMin);
   if (S.minha && !r && S.loaded.corridas){ S.minha = null; LS.set('mtu_minha', null); }
@@ -732,7 +751,8 @@ function renderPass(){
   }
   else if (!S.origem){
     const n = S.pilotos.filter(p => p.online && !ocupado(p.id)).length;
-    h = `<h2>Olá${S.pNome ? ', ' + esc(S.pNome.split(' ')[0]) : ''}! 👋</h2><p class="muted mt" style="font-size:14px">📍 Marque onde você está: <b style="color:var(--text)">toque no mapa</b> ou use o GPS.</p>
+    const nomeOla = (S.cliente && S.cliente.nome) || S.pNome;
+    h = `<h2>Olá${nomeOla ? ', ' + esc(nomeOla.split(' ')[0]) : ''}! 👋</h2><p class="muted mt" style="font-size:14px">📍 Marque onde você está: <b style="color:var(--text)">toque no mapa</b> ou use o GPS.</p>
       <button class="btn block mt" data-act="gps">📡 Usar minha localização</button>
       <div class="row mt"><span class="tag ${n ? 'on' : ''}">● ${n} piloto${n === 1 ? '' : 's'} online</span><span class="tag">${S.empresas.length} empresa${S.empresas.length === 1 ? '' : 's'}</span></div>`;
   }
@@ -752,7 +772,7 @@ function renderPass(){
         <div class="elogo" style="background:${safeColor(o.e.cor)}">${esc(initials(o.e.nome))}</div>
         <div style="min-width:0"><b style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(o.e.nome)}</b><span class="small ${o.online ? '' : 'muted'}" style="color:${o.online ? '#86efac' : ''}">${o.online ? `● ${o.online} piloto${o.online === 1 ? '' : 's'} disponíve${o.online === 1 ? 'l' : 'is'}` : 'nenhum piloto online'}</span></div>
         <div class="price">${BRL(o.preco)}</div></div>`).join('')}</div>
-      <div class="grid2 mt"><label class="f">Seu nome<input class="input" id="pNome" value="${esc(S.pNome)}" placeholder="Ex.: Maria"></label><label class="f">Telefone<input class="input" id="pTel" value="${esc(S.pTel)}" inputmode="tel" placeholder="(11) 99999-0000"></label></div>
+      ${S.cliente ? `<div class="row mt small muted" style="gap:8px"><img class="avatar" style="width:26px;height:26px;border-width:1px" src="${safeImg(S.cliente.foto, S.cliente.nome)}" alt="">Pedindo como <b style="color:var(--text)">${esc(S.cliente.nome)}</b> · ${esc(S.cliente.telefone)}</div>` : `<div class="grid2 mt"><label class="f">Seu nome<input class="input" id="pNome" value="${esc(S.pNome)}" placeholder="Ex.: Maria"></label><label class="f">Telefone<input class="input" id="pTel" value="${esc(S.pTel)}" inputmode="tel" placeholder="(11) 99999-0000"></label></div>`}
       <div class="row mt wrap">${PAGAMENTOS.map(p => `<button class="chip ${S.pagamento === p ? 'on' : ''}" data-act="pay" data-v="${p}">${p === 'Pix' ? '⚡' : p === 'Cartão' ? '💳' : '💵'} ${p}</button>`).join('')}</div>
       <button class="btn block mt" data-act="pedir">Pedir mototáxi · ${BRL(sel.preco)}</button>
       ${sel.online ? '' : `<p class="small muted mt" style="text-align:center">Essa empresa não tem pilotos online agora — o pedido fica aguardando.</p>`}`;
@@ -793,6 +813,8 @@ function rideSheet(r){
   return `<div style="text-align:center"><div style="font-size:44px">🚫</div><h2>Corrida cancelada</h2><p class="muted small mt">${r.canceladaPor === 'passageiro' ? 'Você cancelou esta corrida.' : 'A corrida foi cancelada.'}</p></div><button class="btn block mt" data-act="nova">Pedir outra corrida</button>`;
 }
 async function pedir(){
+  if (Store.auth && (!S.user || !S.cliente)){ toast('Entre na sua conta para pedir.'); renderPass(); return; }
+  if (S.cliente){ S.pNome = S.cliente.nome || ''; S.pTel = S.cliente.telefone || ''; }
   S.pNome = ($('#pNome')?.value || S.pNome).trim(); S.pTel = ($('#pTel')?.value || S.pTel).trim();
   if (!S.pNome){ toast('Informe seu nome'); $('#pNome')?.focus(); return; }
   LS.set('mtu_nome', S.pNome); LS.set('mtu_tel', S.pTel);
@@ -801,7 +823,7 @@ async function pedir(){
   const id = uid();
   const r = {id, status:'procurando', criadaEm:Date.now(), passageiro:{nome:S.pNome.slice(0, 60), tel:S.pTel.slice(0, 30)},
     origem:{lat:S.origem.lat, lng:S.origem.lng, end:S.origem.end}, destino:{lat:S.destino.lat, lng:S.destino.lng, end:S.destino.end},
-    rota:encPath(S.rota.path), distKm:km, durMin:Math.round(S.rota.durS / 60), valor:precoEmp(e, km), empresaId:e.id, empresaNome:e.nome, pagamento:S.pagamento, pilotoId:null, demo:false};
+    rota:encPath(S.rota.path), distKm:km, durMin:Math.round(S.rota.durS / 60), valor:precoEmp(e, km), empresaId:e.id, empresaNome:e.nome, pagamento:S.pagamento, pilotoId:null, demo:false, clienteId:S.user ? S.user.uid : null};
   S.minhaLocal = r; S.minha = id; LS.set('mtu_minha', id);
   renderPass();
   try{ await Store.set('corridas', id, r); toast('Pedido enviado! 🏍️'); }catch(err){ S.minha = null; S.minhaLocal = null; LS.set('mtu_minha', null); renderPass(); }
@@ -1096,6 +1118,11 @@ function showSetup(first){
 
 /* ================= eventos ================= */
 const ACT = {
+  conta:() => contaModal(),
+  authTab:d => { S.authTab = d.v; S.authErr = ''; renderPass(); },
+  loginGoogle:() => loginGoogle(),
+  resetSenha:() => resetSenha(),
+  sair:async () => { closeModal(); try{ await Store.authMod.signOut(Store.auth); }catch(e){} S.minha = null; S.minhaLocal = null; LS.set('mtu_minha', null); S.origem = S.destino = S.rota = null; toast('Você saiu da sua conta.'); },
   nav:d => go(d.v),
   setup:() => showSetup(false),
   gps:() => usarGps(),
@@ -1138,6 +1165,154 @@ document.addEventListener('change', e => {
   if (e.target.id === 'filtroEmp'){ S.filtroEmp = e.target.value; renderAdmin(); }
 });
 
+document.addEventListener('submit', e => {
+  if (e.target.id === 'fAuth'){ e.preventDefault(); authSubmit(e.target); }
+  if (e.target.id === 'fPerfil'){ e.preventDefault(); perfilSubmit(e.target); }
+});
+document.addEventListener('change', async e => {
+  if (e.target.id === 'cliFoto'){ const f = e.target.files[0]; if (!f) return; try{ S.cliFotoTmp = await readPhoto(f); const im = document.getElementById('cliFotoPrev'); if (im) im.src = S.cliFotoTmp; }catch(err){ toast('Não consegui ler essa imagem'); } }
+});
+
+/* ================= CONTA DO CLIENTE ================= */
+function authGate(){
+  if (!Store.auth) return 'ok';
+  if (!S.authReady) return 'loading';
+  if (!S.user) return 'login';
+  if (!S.cliLoaded) return 'loading';
+  if (!S.cliente || !S.cliente.nome || !S.cliente.telefone) return 'perfil';
+  return 'ok';
+}
+function initAuth(){
+  if (!Store.auth){ S.authReady = true; return; }
+  const A = Store.authMod;
+  A.onAuthStateChanged(Store.auth, u => {
+    S.user = u; S.authReady = true;
+    if (S._unsubCli){ S._unsubCli(); S._unsubCli = null; }
+    S.cliente = null; S.cliLoaded = false;
+    if (u){
+      const { doc, onSnapshot } = Store.fs;
+      S._unsubCli = onSnapshot(doc(Store.db, 'clientes', u.uid), s => { S.cliente = s.exists() ? s.data() : null; S.cliLoaded = true; renderAll(); },
+        e => { console.error(e); S.cliLoaded = true; renderAll(); });
+    }
+    renderAll();
+  });
+  A.getRedirectResult(Store.auth).catch(err => { S.authErr = authMsg(err); renderPass(); });
+}
+function authMsg(e){
+  const c = (e && e.code) || '';
+  return ({
+    'auth/email-already-in-use':'Este e-mail já tem conta. Toque em “Entrar”.',
+    'auth/invalid-credential':'E-mail ou senha incorretos.',
+    'auth/wrong-password':'E-mail ou senha incorretos.',
+    'auth/user-not-found':'Não existe conta com esse e-mail. Toque em “Criar conta”.',
+    'auth/weak-password':'A senha precisa ter pelo menos 6 caracteres.',
+    'auth/invalid-email':'E-mail inválido.',
+    'auth/missing-password':'Digite a senha.',
+    'auth/too-many-requests':'Muitas tentativas. Aguarde um pouco e tente de novo.',
+    'auth/network-request-failed':'Sem conexão com a internet.',
+    'auth/unauthorized-domain':'Este endereço não está autorizado para login.',
+    'auth/operation-not-allowed':'Esse tipo de login não está ativado.',
+  })[c] || 'Não foi possível entrar. Tente de novo.';
+}
+function authHtml(gate){
+  if (gate === 'loading') return `<div style="display:grid;place-items:center;height:100%"><div class="spinner"></div></div>`;
+  const err = S.authErr ? `<div class="authErr mt">${esc(S.authErr)}</div>` : '';
+  if (gate === 'perfil'){
+    const u = S.user || {}; const foto = S.cliFotoTmp || (S.cliente && S.cliente.foto) || '';
+    return `<div class="authcard"><div class="authlogo">🏍️</div><h2 style="text-align:center">Complete seu cadastro</h2>
+      <p class="muted small mt" style="text-align:center">O piloto vai ver seu nome e telefone quando aceitar a corrida.</p>
+      <form id="fPerfil" class="col mt2">
+        <label class="photoUp"><img id="cliFotoPrev" src="${safeImg(foto, u.displayName || '?')}" alt=""><div><b>Sua foto (opcional)</b><div class="small muted">Ajuda o piloto a te encontrar</div></div><input type="file" accept="image/*" id="cliFoto" hidden></label>
+        <label class="f">Nome completo *<input class="input" name="nome" required maxlength="60" value="${esc((S.cliente && S.cliente.nome) || u.displayName || '')}"></label>
+        <label class="f">Telefone (WhatsApp) *<input class="input" name="telefone" required maxlength="20" inputmode="tel" placeholder="(11) 99999-0000" value="${esc((S.cliente && S.cliente.telefone) || '')}"></label>
+        ${err}<button class="btn block mt">Salvar e continuar</button>
+        <button type="button" class="linkbtn" data-act="sair">Sair e usar outra conta</button>
+      </form></div>`;
+  }
+  const criar = S.authTab !== 'entrar';
+  return `<div class="authcard"><div class="authlogo">🏍️</div>
+    <h2 style="text-align:center">${criar ? 'Crie sua conta no MotoJá' : 'Entre na sua conta'}</h2>
+    <p class="muted small mt" style="text-align:center">É grátis. Com a conta você pede mototáxi, acompanha o piloto no mapa e vê suas corridas.</p>
+    <button class="btn gbtn block mt2" data-act="loginGoogle"><svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg> Continuar com Google</button>
+    <div class="or">ou com e-mail</div>
+    <div class="row" style="gap:6px"><button class="chip ${criar ? 'on' : ''}" style="flex:1" data-act="authTab" data-v="criar">Criar conta</button><button class="chip ${criar ? '' : 'on'}" style="flex:1" data-act="authTab" data-v="entrar">Entrar</button></div>
+    <form id="fAuth" class="col mt">
+      ${criar ? `<label class="f">Nome completo<input class="input" name="nome" required maxlength="60" autocomplete="name"></label>
+      <label class="f">Telefone (WhatsApp)<input class="input" name="telefone" required maxlength="20" inputmode="tel" autocomplete="tel" placeholder="(11) 99999-0000"></label>` : ''}
+      <label class="f">E-mail<input class="input" name="email" type="email" required autocomplete="email"></label>
+      <label class="f">Senha${criar ? ' (mín. 6 caracteres)' : ''}<input class="input" name="senha" type="password" required minlength="6" autocomplete="${criar ? 'new-password' : 'current-password'}"></label>
+      ${err}
+      <button class="btn block mt">${criar ? 'Criar minha conta' : 'Entrar'}</button>
+      ${criar ? '' : `<button type="button" class="linkbtn" data-act="resetSenha">Esqueci minha senha</button>`}
+    </form></div>`;
+}
+async function loginGoogle(){
+  const A = Store.authMod; const prov = new A.GoogleAuthProvider(); prov.setCustomParameters({prompt:'select_account'});
+  S.authErr = '';
+  try{ await A.signInWithPopup(Store.auth, prov); }
+  catch(e){
+    if (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment'){ try{ await A.signInWithRedirect(Store.auth, prov); return; }catch(e2){ e = e2; } }
+    if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
+    console.error(e); S.authErr = authMsg(e); renderPass();
+  }
+}
+async function authSubmit(f){
+  const A = Store.authMod; const d = new FormData(f); const btn = f.querySelector('button.btn');
+  const email = String(d.get('email') || '').trim(), senha = String(d.get('senha') || '');
+  btn.disabled = true; S.authErr = '';
+  try{
+    if (S.authTab !== 'entrar'){
+      const nome = String(d.get('nome') || '').trim(), telefone = String(d.get('telefone') || '').trim();
+      if (!nome || !telefone){ S.authErr = 'Preencha nome e telefone.'; renderPass(); return; }
+      const cred = await A.createUserWithEmailAndPassword(Store.auth, email, senha);
+      try{ await A.updateProfile(cred.user, {displayName:nome}); }catch(e){}
+      await Store.set('clientes', cred.user.uid, {nome, telefone, email, foto:'', criadoEm:Date.now()});
+      toast('Conta criada! Bem-vindo(a) ao MotoJá 🏍️');
+    } else {
+      await A.signInWithEmailAndPassword(Store.auth, email, senha);
+    }
+  }catch(e){ console.error(e); S.authErr = authMsg(e); _renderAuthKeep(f); }
+  finally{ btn.disabled = false; }
+}
+function _renderAuthKeep(f){
+  const vals = Object.fromEntries(new FormData(f)); renderPass();
+  const nf = document.getElementById('fAuth'); if (nf) for (const [k, v] of Object.entries(vals)) if (nf.elements[k] && k !== 'senha') nf.elements[k].value = v;
+}
+async function resetSenha(){
+  const f = document.getElementById('fAuth'); const email = f && f.elements.email.value.trim();
+  if (!email){ S.authErr = 'Digite seu e-mail acima e toque de novo em “Esqueci minha senha”.'; renderPass(); return; }
+  try{ await Store.authMod.sendPasswordResetEmail(Store.auth, email); toast('Enviamos um e-mail para você criar uma nova senha.'); }
+  catch(e){ S.authErr = authMsg(e); _renderAuthKeep(f); }
+}
+async function perfilSubmit(f){
+  const d = new FormData(f); const nome = String(d.get('nome') || '').trim(), telefone = String(d.get('telefone') || '').trim();
+  if (!nome || !telefone){ toast('Preencha nome e telefone'); return; }
+  const u = S.user; if (!u) return;
+  const body = {...(S.cliente || {}), nome, telefone, email:u.email || '', foto:S.cliFotoTmp || (S.cliente && S.cliente.foto) || '', criadoEm:(S.cliente && S.cliente.criadoEm) || Date.now(), atualizadoEm:Date.now()};
+  try{ await Store.set('clientes', u.uid, body); S.cliFotoTmp = null; closeModal(); toast('Cadastro salvo ✅'); }catch(e){}
+}
+function renderContaBtn(){
+  const b = $('#contaBtn'); const show = !!(S.user && S.cliente && S.view === 'passageiro');
+  b.style.display = show ? '' : 'none';
+  if (show){ const src = safeImg(S.cliente.foto, S.cliente.nome); if (b._src !== src){ b.innerHTML = `<img src="${src}" alt="">`; b._src = src; } }
+}
+function contaModal(){
+  if (!S.user) return;
+  const c = S.cliente || {}; S.cliFotoTmp = null;
+  const minhas = S.corridas.filter(r => r.clienteId === S.user.uid).sort((a, b) => b.criadaEm - a.criadaEm).slice(0, 30);
+  const total = minhas.filter(r => r.status === 'concluida').reduce((s, r) => s + num(r.valor), 0);
+  openModal(`<div class="row between"><h3>Minha conta</h3><button class="xbtn" data-act="closeModal" aria-label="Fechar">✕</button></div>
+    <form id="fPerfil" class="col mt">
+      <label class="photoUp"><img id="cliFotoPrev" src="${safeImg(c.foto, c.nome)}" alt=""><div><b>${esc(c.nome || '')}</b><div class="small muted">${esc(S.user.email || '')}</div><div class="small" style="color:var(--brand)">Trocar foto</div></div><input type="file" accept="image/*" id="cliFoto" hidden></label>
+      <div class="grid2"><label class="f">Nome<input class="input" name="nome" required maxlength="60" value="${esc(c.nome || '')}"></label><label class="f">Telefone<input class="input" name="telefone" required maxlength="20" inputmode="tel" value="${esc(c.telefone || '')}"></label></div>
+      <button class="btn block">Salvar alterações</button>
+    </form>
+    <div class="hr"></div>
+    <div class="row between"><h3>Minhas corridas</h3><span class="small muted">${minhas.filter(r => r.status === 'concluida').length} concluídas · ${BRL(total)}</span></div>
+    <div class="list mt">${minhas.length ? minhas.map(r => { const [l, cl] = STATUS[r.status] || [r.status, '']; return `<div class="card" style="padding:12px"><div class="row between"><span class="tag ${cl}">${esc(l)}</span><span class="small muted">${new Date(r.criadaEm).toLocaleString('pt-BR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'})}</span></div>${r.pilotoNome ? `<div class="small mt">🏍️ ${esc(r.pilotoNome)}${r.avaliacao ? ' · ' + '⭐'.repeat(clamp(r.avaliacao|0, 1, 5)) : ''}</div>` : ''}${tripBox(r)}</div>`; }).join('') : `<div class="empty small">Você ainda não fez nenhuma corrida.</div>`}</div>
+    <button class="btn danger block mt2" data-act="sair">Sair da conta</button>`);
+}
+
 function go(v){
   if (!['passageiro','piloto','empresas'].includes(v)) v = 'passageiro';
   S.view = v;
@@ -1148,6 +1323,7 @@ function go(v){
 }
 window.addEventListener('hashchange', () => { const v = location.hash.slice(1); if (v && v !== S.view) go(v); });
 function renderAll(){
+  renderContaBtn();
   if (S.view === 'passageiro') renderPass();
   if (S.view === 'piloto') renderPiloto(); else pilotGps();
   if (S.view === 'empresas') renderAdmin();
@@ -1188,6 +1364,7 @@ let lastRideKey = '';
   if (MODE === 'google') loadGoogle(CFG.key);
   await Store.init();
   setSync('wait');
+  initAuth();
   pmap = makeMap($('#passMap'), {onTap:onPassTap});
   try{ await pmap.init(LS.get('mtu_center', null) || CFG.center); }
   catch(e){ console.error(e); $('#splash').innerHTML = `<div class="pad" style="text-align:center"><div style="font-size:40px">🗺️</div><h3>Não consegui carregar o Google Maps</h3><p class="muted small mt">Verifique sua conexão e a chave da API.</p><button class="btn mt" data-act="setup">Configurar chave</button></div>`; return; }
@@ -1197,6 +1374,7 @@ let lastRideKey = '';
     S[c] = list; S.loaded[c] = true;
     renderAll();
     if (c === 'corridas'){
+      if (S.user && !myRide()){ const ativa = S.corridas.filter(x => x.clienteId === S.user.uid && ATIVOS.includes(x.status)).sort((a, b) => b.criadaEm - a.criadaEm)[0]; if (ativa){ S.minha = ativa.id; LS.set('mtu_minha', ativa.id); } }
       const r = myRide(); const key = r ? r.id + r.status : '';
       if (key !== lastRideKey){ lastRideKey = key;
         if (r && (r.status === 'aceita' || r.status === 'em_andamento')){ S.sheetMin = false; renderPass();
