@@ -560,16 +560,27 @@ const Store = {
     const all = this.readLocal(c); delete all[id]; LS.set(this.key(c), all); this.notify(c);
   },
   /* aceita a corrida só se ainda estiver "procurando" (evita dois pilotos na mesma corrida) */
-  async claim(id, p){
+  async claim(id, p, check){
+    const ok = d => d && d.status === 'procurando' && (!check || check(d));
     if (this.mode === 'cloud'){
       const { doc, runTransaction } = this.fs; const ref = doc(this.db, 'corridas', id);
       try{
-        await runTransaction(this.db, async tx => { const s = await tx.get(ref); if (!s.exists() || s.data().status !== 'procurando') throw new Error('taken'); tx.update(ref, clean(p)); });
+        await runTransaction(this.db, async tx => { const s = await tx.get(ref); if (!s.exists() || !ok(s.data())) throw new Error('taken'); tx.update(ref, clean(p)); });
         return true;
       }catch(e){ if (e.message === 'taken') return false; toast('Não foi possível aceitar. Tente de novo.'); throw e; }
     }
-    const all = this.readLocal('corridas'); if (!all[id] || all[id].status !== 'procurando') return false;
+    const all = this.readLocal('corridas'); if (!all[id] || !ok(all[id])) return false;
     all[id] = {...all[id], ...clean(p)}; LS.set(this.key('corridas'), all); this.notify('corridas'); return true;
+  },
+  /* transação genérica: fn(dadosAtuais) devolve o patch ou null para não alterar */
+  async tx(c, id, fn){
+    if (this.mode === 'cloud'){
+      const { doc, runTransaction } = this.fs; const ref = doc(this.db, c, id); let out = null;
+      try{ await runTransaction(this.db, async tx => { const s = await tx.get(ref); const patch = fn(s.exists() ? s.data() : null); out = patch; if (patch) tx.update(ref, clean(patch)); }); return out; }
+      catch(e){ console.warn('tx', e); return null; }
+    }
+    const all = this.readLocal(c); const patch = fn(all[id] ? {...all[id]} : null); if (!patch) return null;
+    all[id] = {...all[id], ...clean(patch)}; LS.set(this.key(c), all); this.notify(c); return patch;
   }
 };
 window.addEventListener('storage', e => { if (Store.mode === 'local' && e.key && e.key.startsWith('mt_')) Store.notify(e.key.slice(3)); });
@@ -592,7 +603,7 @@ const S = {
 const emp = id => S.empresas.find(e => e.id === id);
 const pil = id => S.pilotos.find(p => p.id === id);
 const ATIVOS = ['procurando','aceita','em_andamento'];
-const ocupado = pid => S.corridas.some(r => r.pilotoId === pid && (r.status === 'aceita' || r.status === 'em_andamento'));
+const ocupado = pid => { const p = S.pilotos.find(x => x.id === pid); return !!(p && p.emCorrida) || S.corridas.some(r => r.pilotoId === pid && (r.status === 'aceita' || r.status === 'em_andamento')); };
 function myRide(){
   if (!S.minha) return null;
   const f = S.corridas.find(r => r.id === S.minha);
@@ -837,7 +848,10 @@ function tripBox(r){
   <div class="row between mt small"><span class="muted">${esc(r.empresaNome)} · ${esc(r.pagamento)} · ${String(r.distKm).replace('.', ',')} km</span><b style="font-size:15px">${BRL(r.valor)}</b></div>`;
 }
 function rideSheet(r){
-  if (r.status === 'procurando') return `<div style="text-align:center"><div class="spinner"></div><h2>Procurando piloto…</h2><p class="muted small mt">Seu pedido foi enviado para os pilotos da <b style="color:var(--text)">${esc(r.empresaNome)}</b>.</p></div>
+  if (r.status === 'procurando') return `<div style="text-align:center"><div class="spinner"></div><h2>Procurando piloto…</h2><p class="muted small mt">${r.modo === 'vez'
+      ? `Chamando os pilotos da <b style="color:var(--text)">${esc(r.empresaNome)}</b> pela ordem da fila — piloto ${(r.ofertaIdx || 0) + 1} de ${(r.fila || []).length}.`
+      : r.distribuicao === 'vez' && (r.fila || []).length ? `Nenhum piloto da fila respondeu — o pedido agora está aberto para todos os pilotos da <b style="color:var(--text)">${esc(r.empresaNome)}</b>.`
+      : `Seu pedido foi enviado para os pilotos da <b style="color:var(--text)">${esc(r.empresaNome)}</b>.`}</p></div>
     ${tripBox(r)}
     ${S.role === 'master' || S.role === 'local' ? `<div class="grid2 mt"><button class="btn ghost" data-act="cancelar">Cancelar</button><button class="btn ghost" data-act="simular" title="Modo demonstração">🧪 Simular aceite</button></div>
     <p class="small muted mt" style="text-align:center">Modo teste do master: “Simular aceite” atribui um piloto da empresa e acelera o trajeto.</p>` : `<button class="btn ghost block mt" data-act="cancelar">Cancelar pedido</button>`}`;
@@ -867,13 +881,18 @@ async function pedir(){
     rota:encPath(S.rota.path), distKm:km, durMin:Math.round(S.rota.durS / 60), valor:precoEmp(e, km), empresaId:e.id, empresaNome:e.nome, pagamento:S.pagamento, pilotoId:null, demo:false, clienteId:S.user ? S.user.uid : null, cidade:(cidadeDe(S.origem) || {}).nome || ''};
   S.minhaLocal = r; S.minha = id; LS.set('mtu_minha', id);
   renderPass();
-  try{ await Store.set('corridas', id, r); toast('Pedido enviado! 🏍️'); }catch(err){ S.minha = null; S.minhaLocal = null; LS.set('mtu_minha', null); renderPass(); }
+  const livres = S.pilotos.filter(p => p.empresaId === e.id && p.online && !ocupado(p.id)).sort((a, b) => (a.filaDesde || 0) - (b.filaDesde || 0));
+  r.distribuicao = e.distribuicao === 'vez' ? 'vez' : 'escolha'; r.tempoOferta = num(e.tempoOferta, 30); r.recusados = [];
+  if (r.distribuicao === 'vez' && livres.length){ r.modo = 'vez'; r.fila = livres.map(p => p.id).slice(0, 30); r.ofertaIdx = 0; r.ofertaPara = livres[0].id; r.ofertaAte = Date.now() + r.tempoOferta * 1000; }
+  else { r.modo = 'todos'; r.fila = []; r.ofertaIdx = -1; r.ofertaPara = null; r.ofertaAte = null; }
+  try{ await Store.set('corridas', id, r); toast('Pedido enviado! 🏍️'); avisarPilotos(r, r.modo === 'vez' ? [livres[0]] : livres); }catch(err){ S.minha = null; S.minhaLocal = null; LS.set('mtu_minha', null); renderPass(); }
 }
 async function aceitarComo(r, p, demo, gps){
   let inicio = gps && hav(gps, r.origem) < 40000 ? {lat:gps.lat, lng:gps.lng} : null;
   if (!inicio){ const ang = (hash(p.id + r.id) % 628) / 100; inicio = offsetPoint(ll(r.origem), 900 + hash(r.id) % 1200, ang); }
   const rb = await calcRoute(inicio, r.origem);
-  return Store.claim(r.id, {status:'aceita', pilotoId:p.id, pilotoNome:p.nome, moto:p.moto || {}, aceitaEm:Date.now(), inicio, rotaBusca:encPath(rb.path), demo:!!demo});
+  return Store.claim(r.id, {status:'aceita', pilotoId:p.id, pilotoNome:p.nome, moto:p.moto || {}, aceitaEm:Date.now(), inicio, rotaBusca:encPath(rb.path), demo:!!demo, ofertaPara:null, ofertaAte:null},
+    d => demo || d.modo !== 'vez' || d.ofertaPara === p.id);
 }
 async function simular(){
   const r = myRide(); if (!r || r.status !== 'procurando') return;
@@ -886,7 +905,7 @@ async function simular(){
 /* ================= PILOTO ================= */
 let pilotMap = null, pilotMapInit = null;
 function myActive(){ return S.corridas.find(r => r.pilotoId === S.meuPiloto && (r.status === 'aceita' || r.status === 'em_andamento')); }
-function pendentesPara(p){ return p ? S.corridas.filter(r => r.status === 'procurando' && r.empresaId === p.empresaId).sort((a, b) => a.criadaEm - b.criadaEm) : []; }
+function pendentesPara(p){ return p ? S.corridas.filter(r => r.status === 'procurando' && r.empresaId === p.empresaId && (r.modo !== 'vez' || r.ofertaPara === p.id) && !(r.recusados || []).includes(p.id)).sort((a, b) => a.criadaEm - b.criadaEm) : []; }
 function drawPilot(){
   if (!pilotMap || !pilotMap.ready) return;
   const r = myActive(); const keep = [];
@@ -950,15 +969,23 @@ function renderPiloto(){
     const pend = pendentesPara(me);
     if (!me.online) b = `<div class="empty"><div class="big">😴</div><b>Você está offline</b><p class="small mt">Ative o botão acima para receber pedidos de corrida da ${esc(emp(me.empresaId)?.nome || 'sua empresa')}.</p></div>`;
     else if (!pend.length) b = `<div class="empty"><div class="spinner" style="width:40px;height:40px"></div><b>Aguardando pedidos…</b><p class="small mt">Novos pedidos aparecem aqui automaticamente.</p></div>`;
-    else b = `<h3 class="mb">Pedidos disponíveis (${pend.length})</h3><div class="list">${pend.map(r => { const dist = S.myPos ? hav(S.myPos, r.origem) / 1000 : null; return `<div class="card"><div class="row between"><b>${esc(r.passageiro && r.passageiro.nome)}</b><span class="small muted">${dist != null ? `📍 ${dist.toFixed(1).replace('.', ',')} km de você · ` : ''}${ago(r.criadaEm)}</span></div>${tripBox(r)}<button class="btn block mt" data-act="aceitar" data-id="${esc(r.id)}">Aceitar corrida · ${BRL(r.valor)}</button></div>`; }).join('')}</div>`;
+    else b = `<h3 class="mb">${pend.some(r => r.modo === 'vez') ? '🔔 Corrida para você!' : `Pedidos disponíveis (${pend.length})`}</h3><div class="list">${pend.map(r => { const dist = S.myPos ? hav(S.myPos, r.origem) / 1000 : null; const vez = r.modo === 'vez';
+      return `<div class="card" style="${vez ? 'border-color:var(--brand);box-shadow:0 0 0 3px #ffc40033' : ''}"><div class="row between"><b>${esc(r.passageiro && r.passageiro.nome)}</b><span class="small muted">${dist != null ? `📍 ${dist.toFixed(1).replace('.', ',')} km de você · ` : ''}${ago(r.criadaEm)}</span></div>
+        ${vez ? `<div class="row between mt small"><span class="tag y">🔁 Sua vez na fila</span><span>Responda em <b data-ate="${r.ofertaAte}" style="color:var(--brand)">${Math.max(0, Math.ceil((r.ofertaAte - Date.now()) / 1000))}</b> s</span></div><div class="bar mt"><i data-barate="${r.ofertaAte}" data-tot="${num(r.tempoOferta, 30)}" style="width:${clamp((r.ofertaAte - Date.now()) / (num(r.tempoOferta, 30) * 10), 0, 100)}%"></i></div>` : ''}
+        ${tripBox(r)}<div class="${vez ? 'grid2' : ''} mt" style="${vez ? '' : 'display:block'}">${vez ? `<button class="btn ghost" data-act="recusar" data-id="${esc(r.id)}">Recusar</button>` : ''}<button class="btn ${vez ? '' : 'block'}" data-act="aceitar" data-id="${esc(r.id)}">Aceitar · ${BRL(r.valor)}</button></div></div>`; }).join('')}</div>`;
   } else if (logado) b = `<div class="empty"><div class="big">🔎</div><b>Seu cadastro de piloto não foi encontrado</b><p class="small mt">Fale com o administrador do MotoJá.</p></div>`;
   else if (S.pilotos.length) b = `<p class="note">Selecione seu nome acima para ficar online e receber corridas. Dica: envie o link do app com <b>#piloto</b> no final para os seus mototaxistas.</p>`;
+  if (me && (logado || S.role === 'local')) b += alertasCard(me);
   if (logado && me && !act){
     const hist = S.corridas.filter(r => r.pilotoId === me.id && (r.status === 'concluida' || r.status === 'cancelada')).sort((a, b) => (b.concluidaEm || b.criadaEm) - (a.concluidaEm || a.criadaEm)).slice(0, 15);
     b += `<h3 class="mt2 mb">Minhas últimas corridas</h3>${hist.length ? `<div class="list">${hist.map(r => { const [l, c] = STATUS[r.status] || [r.status, '']; return `<div class="card" style="padding:12px"><div class="row between"><span class="tag ${c}">${esc(l)}</span><span class="small muted">${new Date(r.concluidaEm || r.criadaEm).toLocaleString('pt-BR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'})}</span></div><div class="small mt"><b>${esc(r.passageiro && r.passageiro.nome)}</b>${r.avaliacao ? ' · ' + '⭐'.repeat(clamp(r.avaliacao|0, 1, 5)) : ''}</div>${tripBox(r)}</div>`; }).join('')}</div>` : `<div class="empty small">Suas corridas finalizadas aparecem aqui.</div>`}`;
   }
   patch($('#pilotBottom'), b);
   pilotGps();
+  if (me && (S.role === 'piloto' || S.role === 'local')){
+    const busy = !!act;
+    if (!!me.emCorrida !== busy && S._emCorridaSync !== me.id + busy){ S._emCorridaSync = me.id + busy; Store.update('pilotos', me.id, busy ? {emCorrida:true} : {emCorrida:false, filaDesde:Date.now()}).catch(() => {}); }
+  }
 }
 function pilotStats(me){
   const done = S.corridas.filter(r => r.pilotoId === me.id && r.status === 'concluida');
@@ -1002,6 +1029,7 @@ async function aceitar(id){
   if (!r || r.status !== 'procurando'){ toast('Essa corrida já foi aceita por outro piloto.'); return; }
   toast('Aceitando…');
   const gps = S.myPos || await getGps(5000);
+  pararAlarme();
   const ok = await aceitarComo(r, me, false, gps);
   toast(ok ? 'Corrida aceita! Vá até o passageiro.' : 'Essa corrida já foi aceita por outro piloto.');
 }
@@ -1034,7 +1062,7 @@ function renderAdmin(){
     else h += `<div class="list">${S.empresas.slice().sort((a, b) => (a.nome || '').localeCompare(b.nome || '')).map(e => {
       const ps = S.pilotos.filter(p => p.empresaId === e.id); const on = ps.filter(p => p.online).length;
       return `<div class="card"><div class="row"><div class="elogo" style="background:${safeColor(e.cor)}">${esc(initials(e.nome))}</div><div style="flex:1;min-width:0"><b>${esc(e.nome)}</b><div class="small muted">${esc([e.cidade, e.telefone].filter(Boolean).join(' · '))}</div></div></div>
-        <div class="row wrap mt" style="gap:6px"><span class="tag">Bandeirada ${BRL(e.tarifaBase)}</span><span class="tag">${BRL(e.porKm)}/km</span><span class="tag">Mínima ${BRL(e.minima)}</span><span class="tag ${on ? 'on' : ''}">🏍️ ${ps.length} piloto${ps.length === 1 ? '' : 's'} · ${on} online</span></div>
+        <div class="row wrap mt" style="gap:6px"><span class="tag">Bandeirada ${BRL(e.tarifaBase)}</span><span class="tag">${BRL(e.porKm)}/km</span><span class="tag">Mínima ${BRL(e.minima)}</span><span class="tag y">${e.distribuicao === 'vez' ? `🔁 Por vez (${num(e.tempoOferta, 30)}s)` : '🙋 Por escolha'}</span><span class="tag ${on ? 'on' : ''}">🏍️ ${ps.length} piloto${ps.length === 1 ? '' : 's'} · ${on} online</span></div>
         ${e.cnpj || e.responsavel ? `<div class="small muted mt">${esc([e.cnpj && 'CNPJ ' + e.cnpj, e.responsavel && 'Resp.: ' + e.responsavel].filter(Boolean).join(' · '))}</div>` : ''}
         <div class="row mt" style="gap:8px"><button class="btn sm" data-act="novoPiloto" data-emp="${esc(e.id)}">＋ Piloto</button><button class="btn ghost sm" data-act="verPilotos" data-emp="${esc(e.id)}">Ver pilotos</button><span style="flex:1"></span><button class="btn ghost sm" data-act="editEmpresa" data-id="${esc(e.id)}">Editar</button><button class="btn danger sm" data-act="delEmpresa" data-id="${esc(e.id)}" aria-label="Excluir">🗑</button></div></div>`; }).join('')}</div>`;
   }
@@ -1148,6 +1176,116 @@ function cidadeForm(){
     }));
 }
 
+/* ================= DISTRIBUIÇÃO + ALERTAS ================= */
+const APP_URL = location.origin + location.pathname;
+function enviarNtfy(topic, title, message, priority = 5){
+  if (!topic) return;
+  fetch('https://ntfy.sh/', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({topic, title, message, priority, tags:['motor_scooter'], click:APP_URL + '#piloto'})}).catch(e => console.warn('ntfy', e));
+}
+function avisarPilotos(r, lista){
+  for (const p of (lista || []).filter(Boolean)) if (p.ntfy) enviarNtfy(p.ntfy, '🏍️ Nova corrida — MotoJá', `${r.origem.end} → ${r.destino.end}\n${BRL(r.valor)} · ${String(r.distKm).replace('.', ',')} km · ${r.pagamento}${r.modo === 'vez' ? `\nVocê tem ${num(r.tempoOferta, 30)} s para aceitar.` : ''}`);
+}
+/* passa a corrida "por vez" para o próximo piloto da fila (qualquer aparelho pode fazer; a transação evita duplicar) */
+const _avancadas = new Set();
+async function avancarOferta(r0, motivo){
+  const idx0 = r0.ofertaIdx == null ? -1 : r0.ofertaIdx; const key = r0.id + ':' + idx0;
+  if (_avancadas.has(key)) return; _avancadas.add(key);
+  let alvo = null;
+  const patch = await Store.tx('corridas', r0.id, r => {
+    if (!r || r.status !== 'procurando' || r.modo !== 'vez' || (r.ofertaIdx == null ? -1 : r.ofertaIdx) !== idx0) return null;
+    const rec = [...(r.recusados || [])]; if (motivo === 'recusa' && r.ofertaPara && !rec.includes(r.ofertaPara)) rec.push(r.ofertaPara);
+    const fila = r.fila || [];
+    for (let i = idx0 + 1; i < fila.length; i++){ const p = pil(fila[i]); if (p && p.online && !ocupado(p.id) && !rec.includes(p.id)){ alvo = p; return {ofertaIdx:i, ofertaPara:p.id, ofertaAte:Date.now() + num(r.tempoOferta, 30) * 1000, recusados:rec}; } }
+    return {modo:'todos', ofertaIdx:fila.length, ofertaPara:null, ofertaAte:null, recusados:rec};
+  });
+  if (!patch) return;
+  const r = {...r0, ...patch};
+  if (alvo) avisarPilotos(r, [alvo]);
+  else avisarPilotos(r, S.pilotos.filter(p => p.empresaId === r.empresaId && p.online && !ocupado(p.id) && !(r.recusados || []).includes(p.id)));
+}
+setInterval(() => {
+  if (!S.loaded.corridas) return;
+  for (const r of S.corridas) if (r.status === 'procurando' && r.modo === 'vez' && r.ofertaAte && Date.now() > r.ofertaAte + 1500) avancarOferta(r, 'tempo');
+}, 2000);
+
+/* --- toque, vibração, notificação e tela ligada no aparelho do piloto --- */
+let audioCtx = null, alarmeTimer = null, alarmeFim = 0, wakeLock = null, swReg = null;
+async function prepararAlertas(pedirPermissao = true){
+  try{ audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') await audioCtx.resume(); }catch(e){}
+  try{ if ('serviceWorker' in navigator && !swReg) swReg = await navigator.serviceWorker.register('sw.js'); }catch(e){}
+  try{ if (pedirPermissao && 'Notification' in window && Notification.permission === 'default') await Notification.requestPermission(); }catch(e){}
+  manterTela();
+}
+document.addEventListener('pointerdown', () => { try{ if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); }catch(e){} }, {passive:true});
+function bip(t0, f, d){
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.type = 'square'; o.frequency.value = f; o.connect(g); g.connect(audioCtx.destination);
+  g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.35, t0 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + d);
+  o.start(t0); o.stop(t0 + d + 0.02);
+}
+function tocarAlarme(dur = 45000){
+  alarmeFim = Date.now() + dur;
+  if (alarmeTimer) return;
+  const ciclo = () => {
+    if (Date.now() > alarmeFim){ pararAlarme(); return; }
+    try{ if (audioCtx){ const t = audioCtx.currentTime + 0.02; [0, 0.18, 0.36, 0.7, 0.88, 1.06].forEach((s, i) => bip(t + s, i % 2 ? 988 : 1319, 0.15)); } }catch(e){}
+    try{ navigator.vibrate && navigator.vibrate([400, 150, 400, 150, 600]); }catch(e){}
+  };
+  ciclo(); alarmeTimer = setInterval(ciclo, 2000);
+  const b = document.getElementById('alarmeBar'); if (b) b.style.display = '';
+}
+function pararAlarme(){
+  if (alarmeTimer){ clearInterval(alarmeTimer); alarmeTimer = null; }
+  try{ navigator.vibrate && navigator.vibrate(0); }catch(e){}
+  const b = document.getElementById('alarmeBar'); if (b) b.style.display = 'none';
+}
+async function notificarSistema(title, body, tag){
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const opt = {body, tag, renotify:true, requireInteraction:true, vibrate:[500, 200, 500, 200, 800], data:{url:APP_URL + '#piloto'}};
+  try{ const reg = swReg || (navigator.serviceWorker && await navigator.serviceWorker.getRegistration()); if (reg){ await reg.showNotification(title, opt); return; } }catch(e){}
+  try{ new Notification(title, opt); }catch(e){}
+}
+async function manterTela(){
+  const me = pil(S.meuPiloto);
+  try{ if ('wakeLock' in navigator && !wakeLock && document.visibilityState === 'visible' && (!me || me.online !== false)){ wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } }catch(e){}
+}
+function soltarTela(){ try{ wakeLock && wakeLock.release(); }catch(e){} wakeLock = null; }
+document.addEventListener('visibilitychange', () => { const me = pil(S.meuPiloto); if (document.visibilityState === 'visible' && me && me.online && (S.role === 'piloto' || S.role === 'local')) manterTela(); });
+/* toca quando aparece uma corrida nova para este piloto */
+const _vistas = new Set();
+function checarAlarme(){
+  const me = (S.role === 'piloto' || S.role === 'local') ? pil(S.meuPiloto) : null;
+  if (!me || !me.online || myActive() || !S.loaded.corridas){ pararAlarme(); return; }
+  const pend = pendentesPara(me);
+  if (!pend.length){ pararAlarme(); return; }
+  const novas = pend.filter(r => !_vistas.has(r.id + ':' + (r.ofertaIdx == null ? -1 : r.ofertaIdx)));
+  novas.forEach(r => _vistas.add(r.id + ':' + (r.ofertaIdx == null ? -1 : r.ofertaIdx)));
+  if (novas.length){
+    const r = novas[0];
+    tocarAlarme(r.modo === 'vez' ? num(r.tempoOferta, 30) * 1000 : 45000);
+    notificarSistema('🏍️ Nova corrida — MotoJá', `${r.origem.end} → ${r.destino.end} · ${BRL(r.valor)}`, 'corrida-' + r.id);
+  }
+}
+function alertasCard(me){
+  const nperm = 'Notification' in window ? Notification.permission : 'unsupported';
+  return `<div class="card mt" id="alertasCard"><div class="row between"><h3>🔔 Alertas de corrida</h3><button class="btn ghost sm" data-act="testarToque">Testar toque</button></div>
+    <div id="alarmeBar" class="row between mt" style="display:${alarmeTimer ? '' : 'none'};background:#ffc4001a;border:1px solid var(--brand);border-radius:12px;padding:8px 12px"><b class="small pulse" style="color:var(--brand)">🔊 Tocando…</b><button class="btn sm" data-act="pararToque">Parar</button></div>
+    <div class="col mt" style="gap:8px;font-size:13px">
+      <div class="row between"><span>📳 Som + vibração com o app aberto</span><span class="tag on">ativo</span></div>
+      <div class="row between"><span>🔔 Notificação no celular</span>${nperm === 'granted' ? '<span class="tag on">permitida</span>' : nperm === 'denied' ? '<span class="tag r">bloqueada</span>' : nperm === 'unsupported' ? '<span class="tag">indisponível</span>' : '<button class="btn sm" data-act="permitirNotif">Permitir</button>'}</div>
+      ${nperm === 'denied' ? '<p class="small muted">Para liberar: toque no cadeado ao lado do endereço do site → Notificações → Permitir.</p>' : ''}
+      <div class="row between"><span>💡 Tela acesa enquanto online</span><span class="tag ${'wakeLock' in navigator ? 'on' : ''}">${'wakeLock' in navigator ? 'ativo' : 'indisponível'}</span></div>
+    </div>
+    <div class="hr"></div>
+    <b class="small">📲 Tocar mesmo com o app fechado ou o celular bloqueado</b>
+    ${me.ntfy ? `<p class="small muted mt">Ativo. Canal: <b style="color:var(--text);font-family:ui-monospace,monospace">${esc(me.ntfy)}</b></p>
+      <div class="row wrap mt" style="gap:8px"><button class="btn sm" data-act="testeNtfy">Enviar teste</button><button class="btn ghost sm" data-act="copiarNtfy">Copiar canal</button><button class="btn ghost sm" data-act="removerNtfy">Desativar</button></div>
+      <p class="small muted mt">No app <b>ntfy</b>, toque no <b>+</b>, digite o canal acima e assine. Ative "Prioridade máxima / alerta" nas configurações do canal.</p>`
+    : `<ol class="small muted mt" style="padding-left:18px;display:flex;flex-direction:column;gap:4px"><li>Instale o app grátis <b style="color:var(--text)">ntfy</b> (Play Store ou App Store).</li><li>Toque no botão abaixo para criar o seu canal.</li><li>No ntfy, toque em <b style="color:var(--text)">+</b>, digite o canal e assine. Pronto!</li></ol>
+      <button class="btn block mt" data-act="ativarNtfy">Criar meu canal de avisos</button>`}
+  </div>`;
+}
+
 /* ---------- modais ---------- */
 function openModal(html, mount){ $('#modalCard').innerHTML = html; $('#modal').classList.remove('hidden'); mount && mount($('#modalCard')); }
 function closeModal(){ $('#modal').classList.add('hidden'); $('#modalCard').innerHTML = ''; }
@@ -1169,13 +1307,18 @@ function empresaForm(id){
       <div class="grid2"><label class="f">Telefone *<input class="input" name="telefone" required maxlength="30" inputmode="tel" value="${esc(v.telefone)}" placeholder="(11) 3333-0000"></label><label class="f">CNPJ<input class="input" name="cnpj" maxlength="20" value="${esc(v.cnpj)}" placeholder="00.000.000/0001-00"></label></div>
       <div class="grid2"><label class="f">Cidade<input class="input" name="cidade" maxlength="40" value="${esc(v.cidade)}"></label><label class="f">Responsável<input class="input" name="responsavel" maxlength="50" value="${esc(v.responsavel)}"></label></div>
       <div class="grid3"><label class="f">Bandeirada (R$)<input class="input" name="tarifaBase" inputmode="decimal" value="${esc(v.tarifaBase)}"></label><label class="f">Por km (R$)<input class="input" name="porKm" inputmode="decimal" value="${esc(v.porKm)}"></label><label class="f">Mínima (R$)<input class="input" name="minima" inputmode="decimal" value="${esc(v.minima)}"></label></div>
+      <div class="grid2" style="grid-template-columns:2fr 1fr"><label class="f">Como as corridas chegam aos pilotos<select class="input" name="distribuicao">
+          <option value="escolha" ${v.distribuicao !== 'vez' ? 'selected' : ''}>Por escolha — todos recebem, o 1º que aceitar leva</option>
+          <option value="vez" ${v.distribuicao === 'vez' ? 'selected' : ''}>Por vez — fila, um piloto de cada vez</option></select></label>
+        <label class="f">Tempo p/ aceitar<select class="input" name="tempoOferta">${[20, 30, 45, 60, 90].map(s => `<option value="${s}" ${num(v.tempoOferta, 30) === s ? 'selected' : ''}>${s} s</option>`).join('')}</select></label></div>
+      <p class="small muted" style="margin-top:-4px">Por vez: a corrida toca só para o piloto que está há mais tempo esperando. Se ele recusar ou não responder no tempo, passa para o próximo. Se ninguém da fila aceitar, ela é aberta para todos.</p>
       <div class="f" style="display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:700;color:var(--muted)">Cor da marca<div class="colors">${EMP_CORES.map(c => `<label><input type="radio" name="cor" value="${c}" ${c === v.cor ? 'checked' : ''}><span class="sw" style="background:${c};width:18px;height:18px"></span></label>`).join('')}</div></div>
       <div class="grid2 mt"><button type="button" class="btn ghost" data-act="closeModal">Cancelar</button><button class="btn">Salvar</button></div>
     </form>`, c => {
       c.querySelector('#fEmp').addEventListener('submit', async ev => {
         ev.preventDefault(); const f = new FormData(ev.target);
         const d = {nome:f.get('nome').trim(), telefone:f.get('telefone').trim(), cnpj:f.get('cnpj').trim(), cidade:f.get('cidade').trim(), responsavel:f.get('responsavel').trim(),
-          tarifaBase:num(f.get('tarifaBase'), 5), porKm:num(f.get('porKm'), 2.5), minima:num(f.get('minima'), 0), cor:f.get('cor') || '#FFC400', criadaEm:e ? e.criadaEm || Date.now() : Date.now()};
+          tarifaBase:num(f.get('tarifaBase'), 5), porKm:num(f.get('porKm'), 2.5), minima:num(f.get('minima'), 0), cor:f.get('cor') || '#FFC400', distribuicao:f.get('distribuicao') === 'vez' ? 'vez' : 'escolha', tempoOferta:num(f.get('tempoOferta'), 30), criadaEm:e ? e.criadaEm || Date.now() : Date.now()};
         if (!d.nome || !d.telefone){ toast('Preencha nome e telefone'); return; }
         try{ await Store.set('empresas', e ? e.id : uid(), d); closeModal(); toast(e ? 'Empresa atualizada' : 'Empresa cadastrada! Agora cadastre os pilotos.'); }catch(err){}
       });
@@ -1303,11 +1446,21 @@ const ACT = {
   rate:d => { const r = myRide(); r && Store.update('corridas', r.id, {avaliacao:+d.n}); },
   nova:() => { S.minha = null; S.minhaLocal = null; LS.set('mtu_minha', null); S.origem = null; S.destino = null; S.rota = null; S.field = 'origem'; renderPass(); },
   sheetToggle:() => { S.sheetMin = !S.sheetMin; $('#sheet').classList.toggle('min', S.sheetMin); },
-  toggleOnline:() => { const me = pil(S.meuPiloto); if (!me) return; if (me.online && myActive()){ toast('Finalize a corrida antes de ficar offline.'); return; } Store.update('pilotos', me.id, {online:!me.online}); },
+  toggleOnline:() => { const me = pil(S.meuPiloto); if (!me) return; if (me.online && myActive()){ toast('Finalize a corrida antes de ficar offline.'); return; }
+    const on = !me.online; if (on){ prepararAlertas(); } else { soltarTela(); pararAlarme(); }
+    Store.update('pilotos', me.id, on ? {online:true, filaDesde:Date.now()} : {online:false}); },
+  recusar:d => { pararAlarme(); const r = S.corridas.find(x => x.id === d.id); if (r) avancarOferta(r, 'recusa'); toast('Corrida recusada — passou para o próximo da fila.'); },
+  testarToque:() => { prepararAlertas(); tocarAlarme(6000); notificarSistema('🔔 Teste do MotoJá', 'É assim que você vai ser avisado de uma nova corrida.', 'teste'); },
+  pararToque:() => pararAlarme(),
+  permitirNotif:async () => { await prepararAlertas(true); renderAll(); },
+  ativarNtfy:async () => { const me = pil(S.meuPiloto); if (!me) return; const topic = 'motoja-' + Math.random().toString(36).slice(2, 8) + Math.random().toString(36).slice(2, 8); try{ await Store.update('pilotos', me.id, {ntfy:topic}); toast('Canal criado! Agora assine no app ntfy.'); }catch(e){} },
+  testeNtfy:() => { const me = pil(S.meuPiloto); if (me && me.ntfy){ enviarNtfy(me.ntfy, '🔔 Teste do MotoJá', 'Se você está vendo isto, os avisos com o app fechado estão funcionando!', 4); toast('Teste enviado — confira o app ntfy.'); } },
+  removerNtfy:async () => { const me = pil(S.meuPiloto); if (me && await confirmar('Parar de receber avisos com o app fechado?', 'Parar')) Store.update('pilotos', me.id, {ntfy:null}); },
+  copiarNtfy:async () => { const me = pil(S.meuPiloto); try{ await navigator.clipboard.writeText(me.ntfy); toast('Canal copiado!'); }catch(e){ toast(me.ntfy); } },
   aceitar:d => aceitar(d.id),
   embarcou:() => { const a = myActive(); a && Store.update('corridas', a.id, {status:'em_andamento', iniciadaEm:Date.now()}); },
-  finalizar:() => { const a = myActive(); a && Store.update('corridas', a.id, {status:'concluida', concluidaEm:Date.now()}).then(() => toast('Corrida finalizada! 💰')); },
-  desistir:async () => { const a = myActive(); if (a && await confirmar('A corrida volta para a fila de pedidos da empresa.', 'Desistir')) Store.update('corridas', a.id, {status:'procurando', pilotoId:null, pilotoNome:null, aceitaEm:null, inicio:null, rotaBusca:null, posPiloto:null}); },
+  finalizar:() => { const a = myActive(); a && Store.update('corridas', a.id, {status:'concluida', concluidaEm:Date.now()}).then(() => toast('Corrida finalizada! 💰 Você voltou para o fim da fila.')); },
+  desistir:async () => { const a = myActive(); if (a && await confirmar('A corrida volta para a fila de pedidos da empresa.', 'Desistir')) Store.update('corridas', a.id, {status:'procurando', pilotoId:null, pilotoNome:null, aceitaEm:null, inicio:null, rotaBusca:null, posPiloto:null, modo:'todos', ofertaPara:null, ofertaAte:null, recusados:[...(a.recusados || []), a.pilotoId]}).then(() => avisarPilotos({...a, modo:'todos'}, S.pilotos.filter(p => p.empresaId === a.empresaId && p.online && p.id !== a.pilotoId && !ocupado(p.id)))); },
   admTab:d => { S.admTab = d.v; renderAdmin(); },
   verPilotos:d => { S.filtroEmp = d.emp; S.admTab = 'pilotos'; renderAdmin(); },
   novaEmpresa:() => empresaForm(),
@@ -1585,6 +1738,7 @@ function renderAll(){
   if (S.view === 'piloto') renderPiloto(); else pilotGps();
   if (S.view === 'master') renderAdmin();
   renderPilotCount();
+  checarAlarme();
 }
 
 /* ---------- animação da moto ---------- */
@@ -1592,6 +1746,8 @@ let lastT = 0;
 function tick(t){
   requestAnimationFrame(tick);
   if (t - lastT < 250) return; lastT = t;
+  document.querySelectorAll('[data-ate]').forEach(el => { const s = String(Math.max(0, Math.ceil((+el.dataset.ate - Date.now()) / 1000))); if (el.textContent !== s) el.textContent = s; });
+  document.querySelectorAll('[data-barate]').forEach(el => { el.style.width = clamp((+el.dataset.barate - Date.now()) / (+el.dataset.tot * 10), 0, 100) + '%'; });
   if (S.view === 'passageiro' && pmap && pmap.ready){
     const r = myRide(); const m = r && motoState(r);
     if (m){
