@@ -257,6 +257,116 @@ label.f > span{font-weight:400;color:var(--cinza);font-size:12.5px}
 #destAC gmp-place-autocomplete{width:100%}
 a.btn{text-decoration:none}
 
+/* ============ DASHBOARDS ============ */
+.boletim{position:relative;overflow:hidden;background:linear-gradient(135deg,var(--cana) 0%,var(--cana-esc) 100%);color:#fff;border-radius:22px;padding:16px 16px 14px;box-shadow:var(--sombra);isolation:isolate}
+.boletim::after{content:"";position:absolute;z-index:-1;right:-70px;top:70px;width:150px;height:260px;transform:rotate(28deg);opacity:.55;
+  background:linear-gradient(90deg,transparent 0 18px,var(--fita-rosa) 18px 34px,transparent 34px 46px,var(--sinal) 46px 62px,transparent 62px 74px,var(--fita-azul) 74px 90px,transparent 90px)}
+.bol-top{display:flex;flex-direction:column;gap:10px}
+.bol-tit{font-family:var(--f-disp);font-weight:700;font-size:15px;opacity:.85}
+.perchips{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;background:rgba(0,0,0,.18);border-radius:99px;padding:3px;width:max-content;max-width:100%}
+.perchips::-webkit-scrollbar{display:none}
+.perchips button{border:0;background:transparent;color:inherit;font:700 13px var(--f-txt);padding:7px 12px;border-radius:99px;cursor:pointer;white-space:nowrap;opacity:.85}
+.perchips button.on{background:#fff;color:var(--cana-esc);opacity:1}
+.perchips button:focus-visible,.ordchips button:focus-visible,.prow:focus-visible{outline:3px solid var(--sinal);outline-offset:2px}
+.perchips:not(.boletim .perchips){background:var(--sup2);border:1px solid var(--linha);color:var(--tinta)}
+.perchips:not(.boletim .perchips) button.on{background:var(--tinta);color:#fff}
+.bol-main{margin-top:18px}
+.bol-lab{display:block;font-size:13px;opacity:.85}
+.bol-val{display:block;font-family:var(--f-disp);font-weight:800;font-size:clamp(38px,11vw,56px);letter-spacing:-.04em;line-height:1;margin:4px 0 6px;font-variant-numeric:tabular-nums}
+.bol-cmp{font-size:12.5px;opacity:.9}
+.delta{display:inline-block;font-weight:800;font-size:12px;padding:1px 7px;border-radius:99px;background:rgba(255,255,255,.18)}
+.delta.up{background:#fff;color:var(--ok-ink)}
+.delta.down{background:#fff;color:var(--danger-ink)}
+.bol-kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;margin-top:16px;border-radius:14px;overflow:hidden;background:rgba(255,255,255,.18)}
+.bol-kpis > div{background:rgba(0,0,0,.16);padding:10px 12px;backdrop-filter:blur(2px)}
+.bol-kpis b{display:block;font-family:var(--f-disp);font-size:20px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.bol-kpis span{font-size:12px;opacity:.85}
+.boletim.mini{padding:14px}.boletim.mini .bol-main{margin-top:0}.boletim.mini .bol-val{font-size:38px}
+.minikpis{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}
+.minikpis > div{background:var(--sup);border:1px solid var(--linha);border-radius:14px;padding:10px 12px}
+.minikpis b{display:block;font-family:var(--f-disp);font-size:20px;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.minikpis b small{font-size:13px;color:var(--cinza);font-weight:700}
+.minikpis span{font-size:12px;color:var(--cinza)}
+.c-ok{color:var(--ok-ink)}.c-info{color:var(--info-ink)}.c-danger{color:var(--danger-ink)}
+.ordchips{display:flex;gap:6px;align-items:center;font-size:12.5px;color:var(--cinza);flex-wrap:wrap}
+.ordchips button{border:1.5px solid var(--linha);background:var(--sup);border-radius:99px;padding:5px 11px;font:700 12.5px var(--f-txt);color:var(--tinta);cursor:pointer}
+.ordchips button.on{background:var(--cana-bg);border-color:var(--cana);color:var(--cana-esc)}
+/* tabela de pilotos */
+.ptab{display:flex;flex-direction:column}
+.ptab-h{display:none}
+.prow{all:unset;box-sizing:border-box;cursor:pointer;display:grid;grid-template-columns:22px 1fr auto auto;grid-template-areas:"pos quem n v" "bar bar bar bar";gap:4px 10px;align-items:center;padding:12px 4px 10px;border-top:1px solid var(--linha);border-radius:10px}
+.prow:hover{background:var(--sup2)}
+.ppos{grid-area:pos;font-family:var(--f-disp);font-weight:800;color:var(--cinza);text-align:center}
+.ppos.top{color:var(--cana)}
+.pquem{grid-area:quem;display:flex;gap:10px;align-items:center;min-width:0}
+.pav{position:relative;flex:none}.pav .avatar{width:40px;height:40px}
+.pst{position:absolute;right:-1px;bottom:-1px;width:12px;height:12px;border-radius:50%;background:#AAB5AD;border:2px solid #fff}
+.pst.on{background:#1FA463}.pst.b{background:var(--fita-azul)}
+.pnome{display:flex;flex-direction:column;min-width:0}
+.pnome b{font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pnome small{font-size:12px;color:var(--cinza);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pnum{font-weight:700;font-size:14px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.prow > .pnum:nth-of-type(1){grid-area:n}
+.pnum.big{font-family:var(--f-disp);font-size:22px;font-weight:800;letter-spacing:-.02em;display:flex;flex-direction:column;align-items:flex-end;line-height:1}
+.pnum.big small{font:600 11px var(--f-txt);color:var(--cinza);letter-spacing:0}
+.prow > .pnum:not(.big):not(.dk){grid-area:v;min-width:82px}
+.pnum.dk{display:none}
+.pbarra{grid-area:bar;height:5px;border-radius:5px;background:var(--sup2);overflow:hidden;margin-left:32px}
+.pbarra i{display:block;height:100%;background:var(--cana);border-radius:5px;transition:width .4s}
+/* gráfico */
+.graf{display:grid;grid-template-columns:repeat(var(--n),1fr);gap:3px;height:180px;margin-top:14px;align-items:stretch}
+.graf.vazio{display:grid;place-items:center;height:120px;color:var(--cinza);font-size:13px;border:1.5px dashed var(--linha);border-radius:12px}
+.gcol{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:0}
+.gtrack{flex:1;min-height:0;width:100%;display:flex;align-items:flex-end;justify-content:center}
+.gcol i{display:block;width:100%;max-width:34px;background:var(--cana-bg);border:1px solid color-mix(in srgb,var(--cana) 30%,transparent);border-bottom:0;border-radius:5px 5px 1px 1px;flex:none}
+.gcol.atual i{background:var(--cana);border-color:var(--cana)}
+.gcol:hover i{background:color-mix(in srgb,var(--cana) 60%,#fff)}
+.gval{font-size:11px;font-weight:800;color:var(--cana-esc);white-space:nowrap;height:16px}
+.glab{font-size:10.5px;color:var(--cinza);height:16px;margin-top:4px;white-space:nowrap}
+/* pagamentos */
+.pagbar{display:flex;height:14px;border-radius:8px;overflow:hidden;gap:2px}
+.pagbar i{display:block;height:100%}
+.paglist{display:flex;flex-direction:column;margin-top:10px}
+.paglist > div{display:grid;grid-template-columns:12px 1fr auto auto 40px;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--linha);font-size:14px}
+.paglist > div:first-child{border-top:0}
+.paglist b{font-variant-numeric:tabular-nums}.paglist .small:last-child{text-align:right}
+/* viagens por dia */
+.dia{margin-bottom:14px}
+.dia header{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:6px 2px;font-size:13.5px;position:sticky;top:0;background:var(--papel);z-index:1}
+.modal-card .dia header{background:var(--sup)}
+.dia header > b{font-family:var(--f-disp);font-size:15px}
+.dia header > b::first-letter{text-transform:uppercase}
+.dia header span{color:var(--cinza)}.dia header span b{color:var(--tinta)}
+.viagem{background:var(--sup);border:1px solid var(--linha);border-radius:14px;margin-top:6px}
+.viagem summary{list-style:none;display:grid;grid-template-columns:44px 1fr auto;gap:10px;align-items:center;padding:11px 12px;cursor:pointer}
+.viagem summary::-webkit-details-marker{display:none}
+.viagem[open]{border-color:var(--cana);box-shadow:0 0 0 3px var(--cana-bg)}
+.vh{font-family:var(--f-disp);font-weight:700;font-size:14px;color:var(--cinza);font-variant-numeric:tabular-nums}
+.vrota{display:flex;flex-direction:column;min-width:0}
+.vrota b{font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vrota small,.vval small{font-size:12px;color:var(--cinza);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vval{display:flex;flex-direction:column;align-items:flex-end;font-family:var(--f-disp);font-weight:800;font-size:17px;font-variant-numeric:tabular-nums}
+.vval small{font-family:var(--f-txt);font-weight:400}
+.viagem.off .vrota b{color:var(--cinza)}
+.vdet{padding:0 12px 14px;border-top:1px dashed var(--linha);padding-top:12px;margin:0 0 0}
+.mb-only{display:block}
+.pnome small.mb-only{white-space:normal}
+@media (min-width: 960px){
+  .boletim{padding:22px 24px 18px}
+  .bol-top{flex-direction:row;justify-content:space-between;align-items:center}
+  .bol-kpis{grid-template-columns:repeat(4,1fr)}
+  .boletim::after{right:10px;width:200px;height:300px;top:78px;opacity:.75}
+  .minikpis{grid-template-columns:repeat(4,1fr)}
+  .mb-only{display:none!important}
+  .ptab-h{display:grid;grid-template-columns:28px minmax(200px,1.6fr) 70px 110px 100px 80px 70px 70px;gap:10px;padding:0 6px 8px;font-size:12px;color:var(--cinza);font-weight:700}
+  .ptab-h span:nth-child(n+3){text-align:right}
+  .prow{grid-template-columns:28px minmax(200px,1.6fr) 70px 110px 100px 80px 70px 70px;grid-template-areas:none;padding:10px 6px;gap:6px 10px}
+  .prow > *{grid-area:auto!important}
+  .pnum.dk{display:block;color:var(--cinza);font-weight:600}
+  .pbarra{grid-column:2 / -1!important;margin-left:50px}
+  #pilotTop .minikpis{grid-template-columns:repeat(4,1fr)}
+}
+
 /* ============ COMPUTADOR / TABLET ============ */
 .dashcards{display:block}
 @media (min-width: 960px){
@@ -496,14 +606,14 @@ function aplicarMarca(){
   if (_brandPadrao == null) _brandPadrao = brand.innerHTML;
   const meta = document.querySelector('meta[name=theme-color]'); const fav = document.querySelector('link[rel=icon]');
   if (!e){
-    ['--cana', '--cana-esc', '--cana-bg', '--marca-borda'].forEach(v => app.style.removeProperty(v));
+    ['--cana', '--cana-esc', '--cana-bg', '--marca-borda'].forEach(v => [app, $('#modal')].forEach(el => el && el.style.removeProperty(v)));
     brand.innerHTML = _brandPadrao; brand.classList.remove('com-marca'); fitas.style.background = '';
     if (meta) meta.content = '#0E6B45'; if (fav) fav.href = 'icon-192.png';
     document.title = window.APP_PILOTO ? 'MotoJá Piloto' : 'MotoJá — Mototáxi';
     return;
   }
   const pal = paletaDe(e.cor);
-  app.style.setProperty('--cana', pal.pri); app.style.setProperty('--cana-esc', pal.esc); app.style.setProperty('--cana-bg', pal.bg); app.style.setProperty('--marca-borda', pal.borda);
+  [app, $('#modal')].forEach(el => { if (!el) return; el.style.setProperty('--cana', pal.pri); el.style.setProperty('--cana-esc', pal.esc); el.style.setProperty('--cana-bg', pal.bg); el.style.setProperty('--marca-borda', pal.borda); });
   fitas.style.background = pal.pri;
   brand.classList.add('com-marca');
   brand.innerHTML = `${logoEmp(e, 40)}<span class="marca-txt"><span class="marca-nome">${esc(e.nome)}</span><span class="via">via ${_brandPadrao.replace('class="marca"', 'class="marca mini"').replace(/id="mhd"/g, 'id="mhd2"').replace(/#mhd\)/g, '#mhd2)').replace('<span>Moto<b>Já</b></span>', '<span>MotoJá</span>')}</span></span>`;
@@ -1153,8 +1263,8 @@ async function ensurePilotMap(act){
 }
 function fitPilot(){ const a = myActive(); if (!a || !pilotMap || !pilotMap.ready) return; pilotMap.fit(a.status === 'aceita' ? [...ridePath(a, 'rotaBusca'), a.inicio, a.origem, a.destino] : [...ridePath(a, 'rota'), a.origem, a.destino], 40); }
 function pilotoAbas(){
-  const abas = [['painel', 'Painel'], ['corridas', 'Corridas'], ['empresa', 'Minha empresa']];
-  return `<div class="row mb" style="gap:6px;overflow-x:auto">${abas.map(([k, l]) => `<button class="chip ${S.pAba === k ? 'on' : ''}" data-act="pAba" data-v="${k}">${l}</button>`).join('')}</div>`;
+  const abas = [['painel', 'Painel'], ['ganhos', 'Ganhos'], ['corridas', 'Viagens'], ['empresa', 'Minha empresa']];
+  return `<div class="row mb" style="gap:6px;overflow-x:auto">${abas.map(([k, l]) => `<button class="chip ${S.pAba === k ? 'on' : ''}" style="white-space:nowrap;flex:none" data-act="pAba" data-v="${k}">${l}</button>`).join('')}</div>`;
 }
 function pilotoCorridasHtml(me){
   const minhas = S.corridas.filter(r => r.pilotoId === me.id).sort((a, b) => (b.concluidaEm || b.aceitaEm || b.criadaEm) - (a.concluidaEm || a.aceitaEm || a.criadaEm));
@@ -1189,7 +1299,7 @@ function renderPiloto(){
   if (!S.pAba) S.pAba = 'painel';
   $('#view-piloto').classList.toggle('aba-extra', !!(logado && me && S.pAba !== 'painel'));
   if (logado && me && S.pAba !== 'painel'){
-    patch($('#pilotTop'), `<h2 class="mb">${S.pAba === 'corridas' ? 'Corridas' : 'Minha empresa'}</h2>` + pilotoAbas() + (S.pAba === 'corridas' ? pilotoCorridasHtml(me) : pilotoEmpresaHtml(me)));
+    patch($('#pilotTop'), `<h2 class="mb">${{ganhos:'Meus ganhos', corridas:'Minhas viagens'}[S.pAba] || 'Minha empresa'}</h2>` + pilotoAbas() + (S.pAba === 'ganhos' ? pilotoGanhosHtml(me) : S.pAba === 'corridas' ? pilotoViagensHtml(me) : pilotoEmpresaHtml(me)));
     $('#pilotMapWrap').style.display = 'none';
     patch($('#pilotBottom'), '');
     pilotGps();
@@ -1262,7 +1372,7 @@ function pilotStats(me){
   const mes = done.filter(r => { const d = new Date(t(r)); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); });
   const notas = done.filter(r => r.avaliacao); const media = notas.length ? (notas.reduce((s, r) => s + r.avaliacao, 0) / notas.length) : 0;
   const soma = a => BRL(a.reduce((s, r) => s + num(r.valor), 0));
-  return `<div class="dash mt"><div class="stat"><b>${soma(hoje)}</b><span>hoje · ${hoje.length} corrida${hoje.length === 1 ? '' : 's'}</span></div><div class="stat"><b>${soma(sem)}</b><span>últimos 7 dias</span></div><div class="stat"><b>${soma(mes)}</b><span>este mês · ${mes.length}</span></div><div class="stat"><b>${media ? media.toFixed(1).replace('.', ',') + ' ⭐' : '—'}</b><span>avaliação (${notas.length})</span></div></div>`;
+  return `<div class="dash mt"><div class="stat"><b>${soma(hoje)}</b><span>hoje · ${hoje.length} corrida${hoje.length === 1 ? '' : 's'}</span></div><div class="stat"><b>${soma(sem)}</b><span>últimos 7 dias</span></div><div class="stat"><b>${soma(mes)}</b><span>este mês · ${mes.length}</span></div><div class="stat"><b>${media ? media.toFixed(1).replace('.', ',') + ' ⭐' : '—'}</b><span>avaliação (${notas.length})</span></div></div><button class="btn ghost block mt" data-act="pAba" data-v="ganhos">Ver meus ganhos e viagens</button>`;
 }
 function renderPilotCount(){
   const me = pil(S.meuPiloto); const n = me && me.online && !myActive() ? pendentesPara(me).length : 0;
@@ -1313,8 +1423,7 @@ function renderAdmin(){
   const ch = S.corridas.filter(r => new Date(r.criadaEm).toDateString() === hoje).length;
   let h = S.admTab === 'painel' ? '' : `<div class="stats mb">${ehEmpresa() ? '' : `<div class="stat"><b>${EMP.length}</b><span>empresas</span></div>`}<div class="stat"><b>${PIL.length}</b><span>pilotos</span></div><div class="stat"><b style="color:var(--ok-ink)">${online}</b><span>online</span></div><div class="stat"><b>${ch}</b><span>corridas hoje</span></div></div>`;
   if (ehEmpresa()){ const me_ = emp(S.minhaEmpresa); h = `<div class="row mb" style="gap:12px">${me_ ? logoEmp(me_, 52) : ''}<div><h2>${esc(me_ ? me_.nome : 'Minha empresa')}</h2><div class="small muted">Painel da empresa</div></div></div>` + h; }
-  if (S.admTab === 'painel' && ehEmpresa()) h += bannerClientes(emp(S.minhaEmpresa));
-  if (S.admTab === 'painel') h += masterDash();
+  if (S.admTab === 'painel') h += ehEmpresa() ? empresaDash() + '<div class="mt2"></div>' + bannerClientes(emp(S.minhaEmpresa)) : masterDash();
   if (S.admTab === 'cidades') h += cidadesTab();
   if (S.admTab === 'clientes'){
     const cl = (S.clientes || []).slice().sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0));
@@ -1402,6 +1511,227 @@ function masterDash(){
     <div class="card mt"><h3>Corridas agora (${ativos.length})</h3>${ativos.length ? `<div class="list mt">${ativos.slice(0, 8).map(r => { const [l, c] = STATUS[r.status] || [r.status, '']; return `<div style="border-top:1px solid var(--line);padding-top:10px"><div class="row between"><span class="tag ${c}">${esc(l)}</span><span class="small muted">${ago(r.criadaEm)}</span></div><div class="small mt"><b>${esc(r.passageiro && r.passageiro.nome)}</b>${r.pilotoNome ? ' → 🏍️ ' + esc(r.pilotoNome) : ''} · ${esc(r.empresaNome)} · <b>${BRL(r.valor)}</b></div><div class="small muted">${esc(r.origem.end)} → ${esc(r.destino.end)}</div></div>`; }).join('')}</div>` : `<p class="small muted mt">Nenhuma corrida em andamento.</p>`}</div>
     <div class="card mt"><h3>Empresas no mês</h3>${porEmp.length ? `<div class="list mt">${porEmp.map(x => `<div><div class="row between small"><span class="row" style="gap:8px"><span class="sw" style="background:${safeColor(x.e.cor)}"></span><b>${esc(x.e.nome)}</b></span><span>${x.n} corrida${x.n === 1 ? '' : 's'} · <b>${BRL(x.v)}</b></span></div><div class="bar mt" style="margin-top:6px"><i style="width:${x.v / maxEmp * 100}%;background:${safeColor(x.e.cor)}"></i></div></div>`).join('')}</div>` : `<p class="small muted mt">Cadastre empresas na aba Empresas.</p>`}</div>
     <div class="card mt"><h3>Melhores pilotos do mês</h3>${porPil.length ? `<div class="list mt">${porPil.map((x, i) => `<div class="row" style="gap:10px"><b class="muted" style="width:18px">${i + 1}º</b><img class="avatar" style="width:36px;height:36px" src="${safeImg(x.p.foto, x.p.nome)}" alt=""><div style="flex:1;min-width:0"><b class="small">${esc(x.p.nome)}</b><div class="small muted">${x.n} corrida${x.n === 1 ? '' : 's'}${x.m ? ' · ' + x.m.toFixed(1).replace('.', ',') + ' ⭐' : ''}</div></div><b class="small">${BRL(x.v)}</b></div>`).join('')}</div>` : `<p class="small muted mt">Ainda não há corridas concluídas neste mês.</p>`}</div></div>`;
+}
+
+/* ================= DASHBOARDS — empresa e piloto ================= */
+const PERIODOS = [['hoje','Hoje'],['7d','7 dias'],['mes','Este mês'],['30d','30 dias'],['tudo','Tudo']];
+const PER_NOME = {hoje:'hoje', '7d':'nos últimos 7 dias', mes:'neste mês', '30d':'nos últimos 30 dias', tudo:'desde o início'};
+const PER_ANT = {hoje:'ontem até esta hora', '7d':'os 7 dias anteriores', mes:'o mês passado até hoje', '30d':'os 30 dias anteriores'};
+const tRide = r => r.concluidaEm || r.canceladaEm || r.aceitaEm || r.criadaEm || 0;
+const KM = v => (Math.round(v * 10) / 10).toLocaleString('pt-BR') + ' km';
+const NOTA = v => v ? v.toFixed(1).replace('.', ',') : '—';
+const plural = (n, s, p) => n + ' ' + (n === 1 ? s : (p || s + 's'));
+function janela(p){
+  const now = new Date(); const d0 = new Date(now); d0.setHours(0, 0, 0, 0); const D = 864e5;
+  if (p === 'hoje') return [d0.getTime(), d0.getTime() + D];
+  if (p === '7d') return [d0.getTime() + D - 7 * D, d0.getTime() + D];
+  if (p === '30d') return [d0.getTime() + D - 30 * D, d0.getTime() + D];
+  if (p === 'mes') return [new Date(now.getFullYear(), now.getMonth(), 1).getTime(), new Date(now.getFullYear(), now.getMonth() + 1, 1).getTime()];
+  return [0, Infinity];
+}
+/* período anterior de mesmo tamanho (até o mesmo ponto), para comparar */
+function janelaAnterior(p){
+  const now = Date.now(); const [ini] = janela(p); const D = 864e5;
+  if (p === 'hoje') return [ini - D, now - D];
+  if (p === '7d') return [ini - 7 * D, ini];
+  if (p === '30d') return [ini - 30 * D, ini];
+  if (p === 'mes'){ const d = new Date(ini); const pi = new Date(d.getFullYear(), d.getMonth() - 1, 1).getTime(); return [pi, Math.min(pi + (now - ini), ini)]; }
+  return null;
+}
+const naJanela = ([a, b]) => r => { const t = tRide(r); return t >= a && t < b; };
+function resumo(rs){
+  const v = rs.reduce((s, r) => s + num(r.valor), 0), km = rs.reduce((s, r) => s + num(r.distKm), 0);
+  const nt = rs.filter(r => r.avaliacao);
+  const min = rs.reduce((s, r) => s + (r.iniciadaEm && r.concluidaEm ? (r.concluidaEm - r.iniciadaEm) / 6e4 : num(r.durMin)), 0);
+  return {n:rs.length, v, km, ticket:rs.length ? v / rs.length : 0, nota:nt.length ? nt.reduce((s, r) => s + num(r.avaliacao), 0) / nt.length : 0, nNotas:nt.length, min};
+}
+function variacao(atual, antes){
+  if (antes == null) return '';
+  if (!antes && !atual) return `<span class="delta">igual</span>`;
+  if (!antes) return `<span class="delta up">novo</span>`;
+  const pc = Math.round((atual - antes) / antes * 100);
+  return `<span class="delta ${pc > 0 ? 'up' : pc < 0 ? 'down' : ''}">${pc > 0 ? '▲' : pc < 0 ? '▼' : ''} ${Math.abs(pc)}%</span>`;
+}
+function chipsPeriodo(act, atual){
+  return `<div class="perchips" role="tablist">${PERIODOS.map(([k, l]) => `<button class="${atual === k ? 'on' : ''}" role="tab" aria-selected="${atual === k}" data-act="${act}" data-v="${k}">${l}</button>`).join('')}</div>`;
+}
+/* gráfico de barras: valor por hora (hoje), por dia ou por mês (tudo) */
+function grafico(done, p){
+  const now = new Date(); let bs = [];
+  if (p === 'hoje'){
+    const h0 = new Date(now); h0.setHours(0, 0, 0, 0);
+    bs = [...Array(24)].map((_, h) => ({ini:h0.getTime() + h * 36e5, fim:h0.getTime() + (h + 1) * 36e5, lab:h % 3 === 0 ? h + 'h' : '', tit:`${h}h às ${h + 1}h`, atual:h === now.getHours()}));
+  } else if (p === 'tudo'){
+    const prim = done.reduce((m, r) => Math.min(m, tRide(r)), Date.now()); const d = new Date(prim);
+    const meses = clamp((now.getFullYear() - d.getFullYear()) * 12 + now.getMonth() - d.getMonth() + 1, 6, 12);
+    bs = [...Array(meses)].map((_, i) => { const a = new Date(now.getFullYear(), now.getMonth() - meses + 1 + i, 1); const b = new Date(a.getFullYear(), a.getMonth() + 1, 1);
+      return {ini:a.getTime(), fim:b.getTime(), lab:a.toLocaleDateString('pt-BR', {month:'short'}).replace('.', ''), tit:a.toLocaleDateString('pt-BR', {month:'long', year:'numeric'}), atual:i === meses - 1}; });
+  } else {
+    const [ini, fim] = janela(p); const ate = Math.min(fim, (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime() + 864e5; })());
+    const n = Math.round((ate - ini) / 864e5);
+    bs = [...Array(n)].map((_, i) => { const a = new Date(ini); a.setDate(a.getDate() + i); const b = new Date(a); b.setDate(b.getDate() + 1);
+      const lab = n <= 7 ? a.toLocaleDateString('pt-BR', {weekday:'short'}).replace('.', '') : (i % 5 === 0 || i === n - 1 ? String(a.getDate()) : '');
+      return {ini:a.getTime(), fim:b.getTime(), lab, tit:a.toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'2-digit'}), atual:a.toDateString() === now.toDateString()}; });
+  }
+  bs.forEach(b => { const rs = done.filter(naJanela([b.ini, b.fim])); b.v = rs.reduce((s, r) => s + num(r.valor), 0); b.n = rs.length; });
+  const max = Math.max(...bs.map(b => b.v), 0);
+  if (!max) return `<div class="graf vazio"><span>Sem viagens concluídas ${PER_NOME[p]}.</span></div>`;
+  const imax = bs.findIndex(b => b.v === max);
+  return `<div class="graf" style="--n:${bs.length}">${bs.map((b, i) => `<div class="gcol ${b.atual ? 'atual' : ''}" title="${esc(b.tit)}: ${BRL(b.v)} · ${plural(b.n, 'viagem', 'viagens')}">
+      <span class="gval">${i === imax ? esc(BRL(b.v).replace(/,00$/, '')) : ''}</span>
+      <span class="gtrack"><i style="height:${b.v ? Math.max(3, b.v / max * 100) : 0}%"></i></span><span class="glab">${esc(b.lab)}</span></div>`).join('')}</div>`;
+}
+function pagamentosHtml(done){
+  const tot = done.reduce((s, r) => s + num(r.valor), 0);
+  if (!tot) return `<p class="small muted">Sem valores recebidos no período.</p>`;
+  const cores = {Dinheiro:'var(--cana)', Pix:'var(--fita-azul)', 'Cartão':'var(--sinal)'};
+  const linhas = PAGAMENTOS.map(k => { const rs = done.filter(r => (r.pagamento || 'Dinheiro') === k); const v = rs.reduce((s, r) => s + num(r.valor), 0); return {k, v, n:rs.length}; }).filter(x => x.n);
+  return `<div class="pagbar">${linhas.map(x => `<i style="width:${x.v / tot * 100}%;background:${cores[x.k]}" title="${x.k}"></i>`).join('')}</div>
+    <div class="paglist">${linhas.map(x => `<div><span class="sw" style="background:${cores[x.k]}"></span><span>${x.k === 'Pix' ? '⚡' : x.k === 'Cartão' ? '💳' : '💵'} ${x.k}</span><span class="muted small">${plural(x.n, 'viagem', 'viagens')}</span><b>${BRL(x.v)}</b><span class="muted small">${Math.round(x.v / tot * 100)}%</span></div>`).join('')}</div>`;
+}
+function heroResumo({titulo, R, A, p, act, extra}){
+  return `<section class="boletim">
+    <div class="bol-top"><span class="bol-tit">${titulo}</span>${chipsPeriodo(act, p)}</div>
+    <div class="bol-main"><div><span class="bol-lab">Faturado ${PER_NOME[p]}</span><b class="bol-val">${BRL(R.v)}</b>
+      ${A ? `<span class="bol-cmp">${variacao(R.v, A.v)} comparado com ${PER_ANT[p]} (${BRL(A.v)})</span>` : ''}</div></div>
+    <div class="bol-kpis">
+      <div><b>${R.n}</b><span>${R.n === 1 ? 'viagem' : 'viagens'}${A ? ' ' + variacao(R.n, A.n) : ''}</span></div>
+      <div><b>${BRL(R.ticket)}</b><span>valor médio</span></div>
+      <div><b>${KM(R.km)}</b><span>rodados</span></div>
+      ${extra || `<div><b>${NOTA(R.nota)}${R.nota ? ' ★' : ''}</b><span>nota (${R.nNotas})</span></div>`}
+    </div></section>`;
+}
+
+/* ---------- Painel da EMPRESA ---------- */
+function empresaDash(){
+  const PIL = escopoPilotos(); const p = S.ePer || 'hoje';
+  const W = janela(p), WA = janelaAnterior(p);
+  const doPer = S.corridas.filter(naJanela(W));
+  const done = doPer.filter(r => r.status === 'concluida'), canc = doPer.filter(r => r.status === 'cancelada');
+  const R = resumo(done), A = WA ? resumo(S.corridas.filter(r => r.status === 'concluida' && naJanela(WA)(r))) : null;
+  const ativos = S.corridas.filter(r => ATIVOS.includes(r.status)).sort((a, b) => b.criadaEm - a.criadaEm);
+  const online = PIL.filter(x => x.online).length;
+  const pedidos = doPer.length;
+  const taxaCanc = pedidos ? Math.round(canc.length / pedidos * 100) : 0;
+
+  const linhas = PIL.map(pl => {
+    const rs = done.filter(r => r.pilotoId === pl.id), Rp = resumo(rs);
+    const aceitas = doPer.filter(r => r.pilotoId === pl.id).length;
+    const recusas = S.corridas.filter(r => (r.criadaEm >= W[0] && r.criadaEm < W[1]) && (r.recusados || []).includes(pl.id)).length;
+    return {pl, R:Rp, recusas, aceite:aceitas + recusas ? Math.round(aceitas / (aceitas + recusas) * 100) : null, busy:ocupado(pl.id)};
+  });
+  const ord = S.eOrd || 'n';
+  linhas.sort((a, b) => ord === 'v' ? b.R.v - a.R.v || b.R.n - a.R.n : ord === 'nota' ? b.R.nota - a.R.nota || b.R.n - a.R.n : b.R.n - a.R.n || b.R.v - a.R.v);
+  const maxN = Math.max(1, ...linhas.map(x => ord === 'v' ? x.R.v : ord === 'nota' ? x.R.nota : x.R.n));
+  const medida = x => ord === 'v' ? x.R.v : ord === 'nota' ? x.R.nota : x.R.n;
+
+  const tabela = !PIL.length ? `<div class="empty"><div class="big">🏍️</div><b>Nenhum piloto cadastrado</b><p class="small mt">Cadastre seus mototaxistas na aba Pilotos.</p><button class="btn mt" data-act="admTab" data-v="pilotos">Cadastrar piloto</button></div>`
+    : `<div class="ptab">
+      <div class="ptab-h"><span></span><span>Piloto</span><span>Viagens</span><span>Faturado</span><span class="dk">Valor médio</span><span class="dk">Km</span><span class="dk">Nota</span><span class="dk">Aceite</span></div>
+      ${linhas.map((x, i) => { const m = x.pl.moto || {};
+        return `<button class="prow" data-act="pilotoDetalhe" data-id="${esc(x.pl.id)}" aria-label="Ver as viagens de ${esc(x.pl.nome)}">
+        <span class="ppos ${i < 3 && medida(x) ? 'top' : ''}">${i + 1}</span>
+        <span class="pquem"><span class="pav"><img class="avatar" src="${safeImg(x.pl.foto, x.pl.nome)}" alt=""><i class="pst ${x.busy ? 'b' : x.pl.online ? 'on' : ''}"></i></span>
+          <span class="pnome"><b>${esc(x.pl.nome)}</b><small>${x.busy ? 'em corrida' : x.pl.online ? 'online' : 'offline'}${m.placa ? ' · ' + esc(m.placa) : ''}</small>
+          <small class="mb-only">${BRL(x.R.ticket)} médio · ${KM(x.R.km)} · ${NOTA(x.R.nota)}${x.R.nota ? '★' : ''}${x.aceite != null ? ' · ' + x.aceite + '% aceite' : ''}</small></span></span>
+        <span class="pnum big">${x.R.n}<small class="mb-only">${x.R.n === 1 ? 'viagem' : 'viagens'}</small></span>
+        <span class="pnum">${BRL(x.R.v)}</span>
+        <span class="pnum dk">${x.R.n ? BRL(x.R.ticket) : '—'}</span>
+        <span class="pnum dk">${x.R.km ? KM(x.R.km) : '—'}</span>
+        <span class="pnum dk">${x.R.nota ? NOTA(x.R.nota) + ' ★' : '—'}</span>
+        <span class="pnum dk" title="${plural(x.recusas, 'recusa')}">${x.aceite != null ? x.aceite + '%' : '—'}</span>
+        <span class="pbarra"><i style="width:${medida(x) / maxN * 100}%"></i></span></button>`; }).join('')}
+    </div>`;
+
+  return heroResumo({titulo:'Resumo da empresa', R, A, p, act:'ePer'}) + `
+    <div class="minikpis">
+      <div><b>${pedidos}</b><span>pedidos ${PER_NOME[p]}</span></div>
+      <div><b class="${canc.length ? 'c-danger' : ''}">${canc.length}</b><span>cancelados${pedidos ? ' · ' + taxaCanc + '%' : ''}</span></div>
+      <div><b class="c-info">${ativos.length}</b><span>corridas agora</span></div>
+      <div><b class="c-ok">${online}<small> / ${PIL.length}</small></b><span>pilotos online</span></div>
+    </div>
+    <div class="card mt dcard"><div class="row between wrap" style="gap:8px"><h3>Viagens por piloto</h3>
+      <div class="ordchips">Ordenar: ${[['n','Viagens'],['v','Faturado'],['nota','Nota']].map(([k, l]) => `<button class="${ord === k ? 'on' : ''}" data-act="eOrd" data-v="${k}">${l}</button>`).join('')}</div></div>
+      <p class="small muted mb">Período: ${PER_NOME[p]}. Toque num piloto para ver as viagens dele.</p>${tabela}</div>
+    <div class="dashcards">
+      <div class="card mt dcard"><div class="row between"><h3>Faturamento</h3><span class="small muted">${p === 'hoje' ? 'por hora' : p === 'tudo' ? 'por mês' : 'por dia'}</span></div>${grafico(done, p)}</div>
+      <div class="card mt dcard"><h3 class="mb">Formas de pagamento</h3>${pagamentosHtml(done)}</div>
+      <div class="card mt dcard"><h3>Corridas agora (${ativos.length})</h3>${ativos.length ? `<div class="list mt">${ativos.slice(0, 8).map(r => { const [l, c] = STATUS[r.status] || [r.status, '']; return `<div style="border-top:1px solid var(--line);padding-top:10px"><div class="row between"><span class="tag ${c}">${esc(l)}</span><span class="small muted">${ago(r.criadaEm)}</span></div><div class="small mt"><b>${esc(r.passageiro && r.passageiro.nome)}</b>${r.pilotoNome ? ' → 🏍️ ' + esc(r.pilotoNome) : ''} · <b>${BRL(r.valor)}</b></div><div class="small muted">${esc(r.origem.end)} → ${esc(r.destino.end)}</div></div>`; }).join('')}</div>` : `<p class="small muted mt">Nenhuma corrida em andamento.</p>`}</div>
+    </div>`;
+}
+
+/* ---------- lista de viagens agrupada por dia (piloto e detalhe) ---------- */
+function viagensPorDia(rs, opts = {}){
+  if (!rs.length) return `<div class="empty"><div class="big">🧾</div><b>Nenhuma viagem ${opts.per ? PER_NOME[opts.per] : ''}</b><p class="small mt">${opts.vazio || 'As viagens aparecem aqui assim que forem concluídas.'}</p></div>`;
+  const grupos = new Map();
+  rs.slice().sort((a, b) => tRide(b) - tRide(a)).forEach(r => { const k = new Date(tRide(r)).toDateString(); if (!grupos.has(k)) grupos.set(k, []); grupos.get(k).push(r); });
+  const hoje = new Date().toDateString(), ontem = new Date(Date.now() - 864e5).toDateString();
+  const hm = ts => ts ? new Date(ts).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}) : '—';
+  return [...grupos].map(([k, lst]) => { const fin = lst.filter(r => r.status === 'concluida'); const d = new Date(k);
+    const nomeDia = k === hoje ? 'Hoje' : k === ontem ? 'Ontem' : d.toLocaleDateString('pt-BR', {weekday:'long', day:'2-digit', month:'long'});
+    return `<section class="dia"><header><b>${esc(nomeDia)}</b><span>${plural(fin.length, 'viagem', 'viagens')} · <b>${BRL(fin.reduce((s, r) => s + num(r.valor), 0))}</b></span></header>
+      ${lst.map(r => { const [l, c] = STATUS[r.status] || [r.status, '']; const ok = r.status === 'concluida';
+        const durReal = r.iniciadaEm && r.concluidaEm ? Math.max(1, Math.round((r.concluidaEm - r.iniciadaEm) / 6e4)) : null;
+        return `<details class="viagem ${ok ? '' : 'off'}"><summary>
+          <span class="vh">${hm(r.concluidaEm || r.canceladaEm || r.aceitaEm || r.criadaEm)}</span>
+          <span class="vrota"><b>${esc(String(r.destino && r.destino.end || '').split(',')[0])}</b><small>de ${esc(String(r.origem && r.origem.end || '').split(',')[0])}${opts.comPiloto && r.pilotoNome ? ' · 🏍️ ' + esc(r.pilotoNome) : ''}</small></span>
+          <span class="vval">${ok ? BRL(r.valor) : `<span class="tag ${c}">${esc(l)}</span>`}<small>${String(r.distKm || 0).replace('.', ',')} km · ${esc(r.pagamento || '')}</small></span></summary>
+          <div class="vdet">
+            <div class="trip"><div><span class="dot o"></span>${esc(r.origem && r.origem.end)}</div><div><span class="dot d"></span>${esc(r.destino && r.destino.end)}</div></div>
+            <dl class="kv mt"><dt>Passageiro</dt><dd>${esc(r.passageiro && r.passageiro.nome || '—')}</dd>
+              <dt>Valor</dt><dd>${BRL(r.valor)} · ${esc(r.pagamento || '—')}</dd>
+              <dt>Distância</dt><dd>${String(r.distKm || 0).replace('.', ',')} km</dd>
+              <dt>Tempo de viagem</dt><dd>${durReal ? durReal + ' min' : (r.durMin ? `~${r.durMin} min (estimado)` : '—')}</dd>
+              <dt>Pedido</dt><dd>${hm(r.criadaEm)}${r.aceitaEm ? ` · aceita ${hm(r.aceitaEm)}` : ''}${r.iniciadaEm ? ` · embarque ${hm(r.iniciadaEm)}` : ''}${r.concluidaEm ? ` · fim ${hm(r.concluidaEm)}` : ''}</dd>
+              ${r.status === 'cancelada' ? `<dt>Cancelada</dt><dd>${r.canceladaPor === 'passageiro' ? 'pelo passageiro' : 'sim'}</dd>` : ''}
+              ${r.avaliacao ? `<dt>Avaliação</dt><dd>${'★'.repeat(clamp(r.avaliacao | 0, 1, 5))}${'☆'.repeat(5 - clamp(r.avaliacao | 0, 1, 5))}</dd>` : ''}</dl></div></details>`; }).join('')}</section>`; }).join('');
+}
+
+/* ---------- Painel do PILOTO: ganhos ---------- */
+function pilotoGanhosHtml(me){
+  const p = S.pPer || 'hoje'; const W = janela(p), WA = janelaAnterior(p);
+  const minhas = S.corridas.filter(r => r.pilotoId === me.id);
+  const done = minhas.filter(r => r.status === 'concluida' && naJanela(W)(r));
+  const R = resumo(done), A = WA ? resumo(minhas.filter(r => r.status === 'concluida' && naJanela(WA)(r))) : null;
+  const recusas = S.corridas.filter(r => r.criadaEm >= W[0] && r.criadaEm < W[1] && (r.recusados || []).includes(me.id)).length;
+  const aceitas = minhas.filter(naJanela(W)).length;
+  const melhor = done.reduce((m, r) => num(r.valor) > num(m && m.valor) ? r : m, null);
+  const porHora = R.min ? R.v / (R.min / 60) : 0;
+  return heroResumo({titulo:'Resumo das minhas viagens', R, A, p, act:'pPer'}) + `
+    <div class="minikpis">
+      <div><b>${R.min ? Math.round(R.min) + ' min' : '—'}</b><span>em viagem</span></div>
+      <div><b>${porHora ? BRL(porHora) : '—'}</b><span>por hora rodando</span></div>
+      <div><b>${melhor ? BRL(melhor.valor) : '—'}</b><span>maior viagem</span></div>
+      <div><b>${aceitas + recusas ? Math.round(aceitas / (aceitas + recusas) * 100) + '%' : '—'}</b><span>aceite · ${plural(recusas, 'recusa')}</span></div>
+    </div>
+    <div class="dashcards">
+      <div class="card mt dcard"><div class="row between"><h3>Ganhos</h3><span class="small muted">${p === 'hoje' ? 'por hora' : p === 'tudo' ? 'por mês' : 'por dia'}</span></div>${grafico(done, p)}</div>
+      <div class="card mt dcard"><h3 class="mb">Como recebi</h3>${pagamentosHtml(done)}
+        <p class="small muted mt">Os valores são os preços das corridas pelas tarifas da ${esc(emp(me.empresaId)?.nome || 'empresa')}.</p></div>
+    </div>
+    <div class="row between mt2 mb"><h3>Viagens ${PER_NOME[p]}</h3><button class="btn ghost sm" data-act="pAba" data-v="corridas">Ver todas</button></div>
+    ${viagensPorDia(minhas.filter(r => naJanela(W)(r) && (r.status === 'concluida' || r.status === 'cancelada')), {per:p, vazio:'Fique online no Painel para receber corridas.'})}`;
+}
+function pilotoViagensHtml(me){
+  const p = S.pPer || 'hoje'; const W = janela(p);
+  const f = S.pFiltro || 'todas';
+  let rs = S.corridas.filter(r => r.pilotoId === me.id && naJanela(W)(r) && !ATIVOS.includes(r.status));
+  const nFin = rs.filter(r => r.status === 'concluida').length, nCan = rs.length - nFin;
+  if (f === 'concluidas') rs = rs.filter(r => r.status === 'concluida'); else if (f === 'canceladas') rs = rs.filter(r => r.status !== 'concluida');
+  return chipsPeriodo('pPer', p) + `
+    <div class="ordchips mt mb">${[['todas', `Todas (${nFin + nCan})`], ['concluidas', `Concluídas (${nFin})`], ['canceladas', `Canceladas (${nCan})`]].map(([k, l]) => `<button class="${f === k ? 'on' : ''}" data-act="pFiltro" data-v="${k}">${l}</button>`).join('')}</div>
+    ${viagensPorDia(rs, {per:p, vazio:'Escolha outro período ou fique online para receber corridas.'})}`;
+}
+/* detalhe de um piloto (para a empresa) */
+function pilotoDetalheModal(id){
+  const pl = pil(id); if (!pl) return;
+  const p = S.ePer || 'hoje'; const W = janela(p);
+  const rs = S.corridas.filter(r => r.pilotoId === id && naJanela(W)(r) && !ATIVOS.includes(r.status));
+  const R = resumo(rs.filter(r => r.status === 'concluida')); const m = pl.moto || {};
+  openModal(`<div class="row between mb"><div class="row" style="gap:12px"><img class="avatar" src="${safeImg(pl.foto, pl.nome)}" alt=""><div><h2>${esc(pl.nome)}</h2><div class="small muted">${esc([m.marca, m.modelo, m.placa].filter(Boolean).join(' · '))}</div></div></div><button class="xbtn" data-act="closeModal" aria-label="Fechar">✕</button></div>
+    <div class="boletim mini"><div class="bol-main"><div><span class="bol-lab">Faturado ${PER_NOME[p]}</span><b class="bol-val">${BRL(R.v)}</b></div></div>
+      <div class="bol-kpis"><div><b>${R.n}</b><span>${R.n === 1 ? 'viagem' : 'viagens'}</span></div><div><b>${BRL(R.ticket)}</b><span>valor médio</span></div><div><b>${KM(R.km)}</b><span>rodados</span></div><div><b>${NOTA(R.nota)}${R.nota ? ' ★' : ''}</b><span>nota</span></div></div></div>
+    <h3 class="mt2 mb">Viagens ${PER_NOME[p]}</h3>${viagensPorDia(rs, {per:p})}`);
 }
 
 function cidadesTab(){
@@ -1886,6 +2216,11 @@ const ACT = {
   finalizar:() => { const a = myActive(); a && Store.update('corridas', a.id, {status:'concluida', concluidaEm:Date.now()}).then(() => toast('Corrida finalizada! 💰 Você voltou para o fim da fila.')); },
   desistir:async () => { const a = myActive(); if (a && await confirmar('A corrida volta para a fila de pedidos da empresa.', 'Desistir')) Store.update('corridas', a.id, {status:'procurando', pilotoId:null, pilotoNome:null, aceitaEm:null, inicio:null, rotaBusca:null, posPiloto:null, modo:'todos', ofertaPara:null, ofertaAte:null, recusados:[...(a.recusados || []), a.pilotoId]}).then(() => avisarPilotos({...a, modo:'todos'}, S.pilotos.filter(p => p.empresaId === a.empresaId && p.online && p.id !== a.pilotoId && !ocupado(p.id)))); },
   admTab:d => { S.admTab = d.v; renderAdmin(); },
+  ePer:d => { S.ePer = d.v; renderAdmin(); },
+  eOrd:d => { S.eOrd = d.v; renderAdmin(); },
+  pilotoDetalhe:d => pilotoDetalheModal(d.id),
+  pPer:d => { S.pPer = d.v; renderAll(); },
+  pFiltro:d => { S.pFiltro = d.v; renderAll(); },
   verPilotos:d => { S.filtroEmp = d.emp; S.admTab = 'pilotos'; renderAdmin(); },
   novaEmpresa:() => empresaForm(),
   editEmpresa:d => empresaForm(d.id),
