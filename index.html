@@ -230,6 +230,7 @@ label.f > span{font-weight:400;color:var(--cinza);font-size:12.5px}
 .or{display:flex;align-items:center;gap:10px;color:var(--cinza);font-size:13px;margin:18px 0}
 .or::before,.or::after{content:'';flex:1;height:1px;background:var(--linha)}
 .seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--sup2);border:1px solid var(--linha);border-radius:14px;padding:4px;margin-bottom:18px}
+.seg.seg3{grid-template-columns:1fr 1fr 1fr}
 .seg button{border:0;background:none;border-radius:10px;padding:10px;font-weight:700;font-size:14.5px;cursor:pointer;color:var(--cinza)}
 .seg button.on{background:var(--sup);color:var(--tinta);box-shadow:0 1px 3px rgba(21,35,28,.15)}
 .authErr{background:#FCEDEC;color:var(--danger-ink);border:1px solid #F2C9C6;border-radius:12px;padding:10px 12px;font-size:14px}
@@ -646,7 +647,7 @@ const Store = {
       const V = '10.12.2';
       const app = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`);
       this.fs = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`);
-      const fbApp = app.initializeApp(CFG.firebase);
+      const fbApp = app.initializeApp(CFG.firebase); this.appMod = app; this.fbApp = fbApp;
       this.db = this.fs.getFirestore(fbApp);
       try{ this.authMod = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-auth.js`); this.auth = this.authMod.getAuth(fbApp); this.auth.languageCode = 'pt'; }
       catch(e){ console.error('auth', e); this.auth = null; }
@@ -1166,12 +1167,15 @@ async function aceitar(id){
 
 /* ================= EMPRESAS (admin) ================= */
 function renderAdmin(){
-  if (!['painel','cidades','empresas','pilotos','clientes','corridas'].includes(S.admTab)) S.admTab = 'painel';
-  patch($('#admTabs'), [['painel','Painel'],['cidades','Cidades'],['empresas','Empresas'],['pilotos','Pilotos'],['clientes','Clientes'],['corridas','Corridas']].map(([k, l]) => `<button class="chip ${S.admTab === k ? 'on' : ''}" data-act="admTab" data-v="${k}">${l}</button>`).join(''));
-  const online = S.pilotos.filter(p => p.online).length;
+  const EMP = escopoEmpresas(), PIL = escopoPilotos();
+  const ABAS = ehEmpresa() ? [['painel','Painel'],['pilotos','Pilotos'],['corridas','Corridas'],['empresas','Minha empresa']] : [['painel','Painel'],['cidades','Cidades'],['empresas','Empresas'],['pilotos','Pilotos'],['clientes','Clientes'],['corridas','Corridas']];
+  if (!ABAS.some(a => a[0] === S.admTab)) S.admTab = 'painel';
+  patch($('#admTabs'), ABAS.map(([k, l]) => `<button class="chip ${S.admTab === k ? 'on' : ''}" data-act="admTab" data-v="${k}">${l}</button>`).join(''));
+  const online = PIL.filter(p => p.online).length;
   const hoje = new Date().toDateString();
   const ch = S.corridas.filter(r => new Date(r.criadaEm).toDateString() === hoje).length;
-  let h = S.admTab === 'painel' ? '' : `<div class="stats mb"><div class="stat"><b>${S.empresas.length}</b><span>empresas</span></div><div class="stat"><b>${S.pilotos.length}</b><span>pilotos</span></div><div class="stat"><b style="color:var(--ok-ink)">${online}</b><span>online</span></div><div class="stat"><b>${ch}</b><span>corridas hoje</span></div></div>`;
+  let h = S.admTab === 'painel' ? '' : `<div class="stats mb">${ehEmpresa() ? '' : `<div class="stat"><b>${EMP.length}</b><span>empresas</span></div>`}<div class="stat"><b>${PIL.length}</b><span>pilotos</span></div><div class="stat"><b style="color:var(--ok-ink)">${online}</b><span>online</span></div><div class="stat"><b>${ch}</b><span>corridas hoje</span></div></div>`;
+  if (ehEmpresa()){ const me_ = emp(S.minhaEmpresa); h = `<div class="row mb" style="gap:12px"><div class="elogo" style="background:${safeColor(me_ && me_.cor)}">${esc(initials(me_ ? me_.nome : 'E'))}</div><div><h2>${esc(me_ ? me_.nome : 'Minha empresa')}</h2><div class="small muted">Painel da empresa</div></div></div>` + h; }
   if (S.admTab === 'painel') h += masterDash();
   if (S.admTab === 'cidades') h += cidadesTab();
   if (S.admTab === 'clientes'){
@@ -1186,23 +1190,24 @@ function renderAdmin(){
       : `<div class="empty"><div class="big">👥</div><b>${cl.length ? 'Nenhum cliente encontrado' : 'Nenhum cliente cadastrado ainda'}</b><p class="small mt">Os clientes aparecem aqui quando criam a conta no app.</p></div>`;
   }
   if (S.admTab === 'empresas'){
-    h += `<div class="row between mb"><h3>Empresas de mototáxi</h3><button class="btn sm" data-act="novaEmpresa">＋ Nova empresa</button></div>`;
-    if (!S.empresas.length) h += `<div class="empty"><div class="big">🏢</div><b>Nenhuma empresa ainda</b><p class="small mt">Cadastre a primeira empresa de mototáxi. Cada empresa define suas tarifas e cadastra seus pilotos.</p><div class="row mt" style="justify-content:center;flex-wrap:wrap"><button class="btn" data-act="novaEmpresa">Cadastrar empresa</button><button class="btn ghost" data-act="seed">🧪 Criar dados de exemplo</button></div></div>`;
-    else h += `<div class="list">${S.empresas.slice().sort((a, b) => (a.nome || '').localeCompare(b.nome || '')).map(e => {
-      const ps = S.pilotos.filter(p => p.empresaId === e.id); const on = ps.filter(p => p.online).length;
+    h += ehEmpresa() ? `<div class="row between mb"><h3>Minha empresa</h3></div>` : `<div class="row between mb"><h3>Empresas de mototáxi</h3><button class="btn sm" data-act="novaEmpresa">＋ Nova empresa</button></div>`;
+    if (!EMP.length) h += `<div class="empty"><div class="big">🏢</div><b>Nenhuma empresa ainda</b><p class="small mt">Cadastre a primeira empresa de mototáxi. Cada empresa define suas tarifas e cadastra seus pilotos.</p><div class="row mt" style="justify-content:center;flex-wrap:wrap"><button class="btn" data-act="novaEmpresa">Cadastrar empresa</button><button class="btn ghost" data-act="seed">🧪 Criar dados de exemplo</button></div></div>`;
+    else h += `<div class="list">${EMP.slice().sort((a, b) => (a.nome || '').localeCompare(b.nome || '')).map(e => {
+      const ps = PIL.filter(p => p.empresaId === e.id); const on = ps.filter(p => p.online).length;
       return `<div class="card"><div class="row"><div class="elogo" style="background:${safeColor(e.cor)}">${esc(initials(e.nome))}</div><div style="flex:1;min-width:0"><b>${esc(e.nome)}</b><div class="small muted">${esc([e.cidade, e.telefone].filter(Boolean).join(' · '))}</div></div></div>
         <div class="row wrap mt" style="gap:6px"><span class="tag">Bandeirada ${BRL(e.tarifaBase)}</span><span class="tag">${BRL(e.porKm)}/km</span><span class="tag">Mínima ${BRL(e.minima)}</span><span class="tag y">${e.distribuicao === 'vez' ? `🔁 Por vez (${num(e.tempoOferta, 30)}s)` : '🙋 Por escolha'}</span><span class="tag ${on ? 'on' : ''}">🏍️ ${ps.length} piloto${ps.length === 1 ? '' : 's'} · ${on} online</span></div>
-        ${e.cnpj || e.responsavel ? `<div class="small muted mt">${esc([e.cnpj && 'CNPJ ' + e.cnpj, e.responsavel && 'Resp.: ' + e.responsavel].filter(Boolean).join(' · '))}</div>` : ''}
-        <div class="row mt" style="gap:8px"><button class="btn sm" data-act="novoPiloto" data-emp="${esc(e.id)}">＋ Piloto</button><button class="btn ghost sm" data-act="verPilotos" data-emp="${esc(e.id)}">Ver pilotos</button><span style="flex:1"></span><button class="btn ghost sm" data-act="editEmpresa" data-id="${esc(e.id)}">Editar</button><button class="btn danger sm" data-act="delEmpresa" data-id="${esc(e.id)}" aria-label="Excluir">🗑</button></div></div>`; }).join('')}</div>`;
+        ${docTexto(e) || e.responsavel ? `<div class="small muted mt">${esc([docTexto(e), e.responsavel && 'Resp.: ' + e.responsavel].filter(Boolean).join(' · '))}</div>` : ''}
+        ${ehEmpresa() ? '' : `<div class="small mt" style="color:${e.uid ? 'var(--ok-ink)' : 'var(--warn-ink)'}">${e.uid ? `🔑 Acesso: ${esc(e.emailAcesso || '')}` : '⚠ Sem acesso ao app — edite para criar e-mail e senha'}</div>`}
+        <div class="row mt" style="gap:8px"><button class="btn sm" data-act="novoPiloto" data-emp="${esc(e.id)}">＋ Piloto</button><button class="btn ghost sm" data-act="verPilotos" data-emp="${esc(e.id)}">Ver pilotos</button><span style="flex:1"></span><button class="btn ghost sm" data-act="editEmpresa" data-id="${esc(e.id)}">Editar</button>${ehEmpresa() ? '' : `<button class="btn danger sm" data-act="delEmpresa" data-id="${esc(e.id)}" aria-label="Excluir">🗑</button>`}</div></div>`; }).join('')}</div>`;
   }
   if (S.admTab === 'pilotos'){
     if (S.filtroEmp && !emp(S.filtroEmp)) S.filtroEmp = '';
     h += `<div class="note mb row between" style="gap:10px"><span>Link do app do piloto: <b style="word-break:break-all">${esc(LINK_PILOTO)}</b></span><button class="btn ghost sm" data-act="copiarLinkPiloto">Copiar</button></div>`;
-    h += `<div class="row between mb"><h3>Mototaxistas</h3><button class="btn sm" data-act="novoPiloto" ${S.empresas.length ? '' : 'disabled'}>＋ Novo piloto</button></div>`;
-    if (!S.empresas.length) h += `<div class="empty"><div class="big">🏢</div><b>Cadastre uma empresa primeiro</b><p class="small mt">Todo piloto pertence a uma empresa de mototáxi.</p><button class="btn mt" data-act="admTab" data-v="empresas">Ir para Empresas</button></div>`;
+    h += `<div class="row between mb"><h3>Mototaxistas</h3><button class="btn sm" data-act="novoPiloto" ${EMP.length ? '' : 'disabled'}>＋ Novo piloto</button></div>`;
+    if (!EMP.length) h += `<div class="empty"><div class="big">🏢</div><b>Cadastre uma empresa primeiro</b><p class="small mt">Todo piloto pertence a uma empresa de mototáxi.</p><button class="btn mt" data-act="admTab" data-v="empresas">Ir para Empresas</button></div>`;
     else {
-      h += `<select class="input mb" id="filtroEmp"><option value="">Todas as empresas</option>${S.empresas.map(e => `<option value="${esc(e.id)}" ${S.filtroEmp === e.id ? 'selected' : ''}>${esc(e.nome)}</option>`).join('')}</select>`;
-      const ps = S.pilotos.filter(p => !S.filtroEmp || p.empresaId === S.filtroEmp).sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+      h += `<select class="input mb" id="filtroEmp"><option value="">Todas as empresas</option>${EMP.map(e => `<option value="${esc(e.id)}" ${S.filtroEmp === e.id ? 'selected' : ''}>${esc(e.nome)}</option>`).join('')}</select>`;
+      const ps = PIL.filter(p => !S.filtroEmp || p.empresaId === S.filtroEmp).sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
       if (!ps.length) h += `<div class="empty"><div class="big">🏍️</div><b>Nenhum piloto aqui</b><p class="small mt">Cadastre o mototaxista com foto, nome e os dados da moto.</p><button class="btn mt" data-act="novoPiloto" data-emp="${esc(S.filtroEmp)}">Cadastrar piloto</button></div>`;
       else h += `<div class="list">${ps.map(p => { const m = p.moto || {}; const e = emp(p.empresaId); const busy = ocupado(p.id);
         return `<div class="card"><div class="driver"><img class="avatar" src="${safeImg(p.foto, p.nome)}" alt=""><div style="flex:1;min-width:0"><div class="row between"><b>${esc(p.nome)}</b><span class="tag ${busy ? 'b' : p.online ? 'on' : ''}">${busy ? 'em corrida' : p.online ? '● online' : 'offline'}</span></div>
@@ -1216,7 +1221,7 @@ function renderAdmin(){
     const rs = S.corridas.slice().sort((a, b) => b.criadaEm - a.criadaEm).slice(0, 80);
     const fin = S.corridas.filter(r => !ATIVOS.includes(r.status)).length;
     const total = S.corridas.filter(r => r.status === 'concluida').reduce((s, r) => s + num(r.valor), 0);
-    h += `<div class="row between mb"><h3>Corridas</h3><button class="btn ghost sm" data-act="limpar" ${fin ? '' : 'disabled'}>Limpar finalizadas (${fin})</button></div>
+    h += `<div class="row between mb"><h3>Corridas</h3>${ehEmpresa() ? '' : `<button class="btn ghost sm" data-act="limpar" ${fin ? '' : 'disabled'}>Limpar finalizadas (${fin})</button>`}</div>
       <p class="small muted mb">Faturamento das corridas concluídas: <b style="color:var(--text)">${BRL(total)}</b></p>`;
     if (!rs.length) h += `<div class="empty"><div class="big">🧾</div><b>Nenhuma corrida ainda</b><p class="small mt">As corridas pedidas pelos passageiros aparecem aqui em tempo real.</p></div>`;
     else h += `<div class="list">${rs.map(r => { const [l, c] = STATUS[r.status] || [r.status, '']; return `<div class="card"><div class="row between"><span class="tag ${c}">${esc(l)}</span><span class="small muted">${ago(r.criadaEm)}</span></div>
@@ -1226,6 +1231,7 @@ function renderAdmin(){
 }
 
 function masterDash(){
+  const EMP = escopoEmpresas(), PIL = escopoPilotos();
   const now = new Date(); const t = r => r.concluidaEm || r.criadaEm;
   const mesmoDia = (ts, d) => new Date(ts).toDateString() === d.toDateString();
   const doMes = ts => { const d = new Date(ts); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); };
@@ -1235,20 +1241,20 @@ function masterDash(){
   const cancHoje = pedHoje.filter(r => r.status === 'cancelada').length;
   const ativos = S.corridas.filter(r => ATIVOS.includes(r.status)).sort((a, b) => b.criadaEm - a.criadaEm);
   const soma = a => a.reduce((s, r) => s + num(r.valor), 0);
-  const online = S.pilotos.filter(p => p.online).length;
+  const online = PIL.filter(p => p.online).length;
   const dias = [...Array(7)].map((_, i) => { const d = new Date(now); d.setDate(d.getDate() - 6 + i); const v = soma(done.filter(r => mesmoDia(t(r), d))); return {d, v}; });
   const maxDia = Math.max(1, ...dias.map(x => x.v));
-  const porEmp = S.empresas.map(e => { const rs = mes.filter(r => r.empresaId === e.id); return {e, n:rs.length, v:soma(rs)}; }).sort((a, b) => b.v - a.v);
+  const porEmp = EMP.map(e => { const rs = mes.filter(r => r.empresaId === e.id); return {e, n:rs.length, v:soma(rs)}; }).sort((a, b) => b.v - a.v);
   const maxEmp = Math.max(1, ...porEmp.map(x => x.v));
-  const porPil = S.pilotos.map(p => { const rs = mes.filter(r => r.pilotoId === p.id); const nt = rs.filter(r => r.avaliacao); return {p, n:rs.length, v:soma(rs), m:nt.length ? nt.reduce((s, r) => s + r.avaliacao, 0) / nt.length : 0}; }).filter(x => x.n).sort((a, b) => b.v - a.v).slice(0, 5);
+  const porPil = PIL.map(p => { const rs = mes.filter(r => r.pilotoId === p.id); const nt = rs.filter(r => r.avaliacao); return {p, n:rs.length, v:soma(rs), m:nt.length ? nt.reduce((s, r) => s + r.avaliacao, 0) / nt.length : 0}; }).filter(x => x.n).sort((a, b) => b.v - a.v).slice(0, 5);
   return `<div class="dash">
       <div class="stat"><b style="color:var(--brand)">${BRL(soma(hoje))}</b><span>faturamento hoje</span></div>
       <div class="stat"><b>${BRL(soma(mes))}</b><span>faturamento no mês</span></div>
       <div class="stat"><b>${pedHoje.length}</b><span>pedidos hoje · ${hoje.length} concluídos${cancHoje ? ' · ' + cancHoje + ' cancel.' : ''}</span></div>
       <div class="stat"><b style="color:var(--info-ink)">${ativos.length}</b><span>corridas agora</span></div>
-      <div class="stat"><b style="color:var(--ok-ink)">${online}<small class="muted" style="font-size:13px"> / ${S.pilotos.length}</small></b><span>pilotos online</span></div>
-      <div class="stat"><b>${(S.clientes || []).length}</b><span>clientes cadastrados</span></div>
-      <div class="stat"><b>${S.empresas.length}</b><span>empresas</span></div>
+      <div class="stat"><b style="color:var(--ok-ink)">${online}<small class="muted" style="font-size:13px"> / ${PIL.length}</small></b><span>pilotos online</span></div>
+      ${ehEmpresa() ? `<div class="stat"><b>${mes.length}</b><span>corridas no mês</span></div><div class="stat"><b>${done.length}</b><span>corridas concluídas</span></div>` : `<div class="stat"><b>${(S.clientes || []).length}</b><span>clientes cadastrados</span></div>
+      <div class="stat"><b>${EMP.length}</b><span>empresas</span></div>`}
       <div class="stat"><b>${mes.length ? BRL(soma(mes) / mes.length) : '—'}</b><span>ticket médio (mês)</span></div>
     </div>
     <div class="dashcards">
@@ -1306,6 +1312,31 @@ function cidadeForm(){
       const ok = await adicionarCidade(f.get('nome'), f.get('uf'), f.get('raio')); btn.disabled = false; if (ok) closeModal();
     }));
 }
+
+/* ================= EMPRESAS: documento, acesso e escopo ================= */
+const soDig = s => String(s || '').replace(/\D/g, '');
+function cpfValido(c){ c = soDig(c); if (c.length !== 11 || /^(\d)\1+$/.test(c)) return false;
+  for (const t of [9, 10]){ let s = 0; for (let i = 0; i < t; i++) s += +c[i] * (t + 1 - i); if (((s * 10) % 11) % 10 !== +c[t]) return false; } return true; }
+function cnpjValido(c){ c = soDig(c); if (c.length !== 14 || /^(\d)\1+$/.test(c)) return false;
+  const calc = n => { const w = n === 12 ? [5,4,3,2,9,8,7,6,5,4,3,2] : [6,5,4,3,2,9,8,7,6,5,4,3,2]; let s = 0; for (let i = 0; i < n; i++) s += +c[i] * w[i]; const r = s % 11; return r < 2 ? 0 : 11 - r; };
+  return calc(12) === +c[12] && calc(13) === +c[13]; }
+function fmtDoc(tipo, v){ const d = soDig(v);
+  if (tipo === 'cpf') return d.slice(0, 11).replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+  return d.slice(0, 14).replace(/^(\d{2})(\d)/, '$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3').replace(/\.(\d{3})(\d)/, '.$1/$2').replace(/(\d{4})(\d)/, '$1-$2'); }
+const docTexto = e => { const t = e.docTipo || (e.cnpj ? 'cnpj' : ''); const v = e.documento || e.cnpj || ''; return v ? `${t === 'cpf' ? 'CPF' : 'CNPJ'} ${v}` : ''; };
+/* cria a conta de acesso sem desconectar quem está logado (usa uma 2ª instância do Firebase) */
+async function criarLoginSecundario(email, senha){
+  if (Store.mode !== 'cloud' || !Store.authMod) return 'local-' + uid();
+  const app = Store.appMod, A = Store.authMod;
+  const sec = (app.getApps ? app.getApps().find(a => a.name === 'cadastro') : null) || app.initializeApp(CFG.firebase, 'cadastro');
+  const sa = A.getAuth(sec);
+  const cred = await A.createUserWithEmailAndPassword(sa, email, senha);
+  const novo = cred.user.uid; try{ await A.signOut(sa); }catch(e){}
+  return novo;
+}
+const ehEmpresa = () => S.role === 'empresa';
+const escopoEmpresas = () => ehEmpresa() ? S.empresas.filter(e => e.id === S.minhaEmpresa) : S.empresas;
+const escopoPilotos = () => ehEmpresa() ? S.pilotos.filter(p => p.empresaId === S.minhaEmpresa) : S.pilotos;
 
 /* ================= APP DO PILOTO ================= */
 const LINK_PILOTO = location.origin + location.pathname.replace(/[^/]*$/, '') + 'piloto.html';
@@ -1466,27 +1497,78 @@ function confirmar(msg, okTxt = 'Excluir'){
 }
 function empresaForm(id){
   const e = id ? emp(id) : null;
-  const v = e || {nome:'', cnpj:'', telefone:'', cidade:'', responsavel:'', tarifaBase:5, porKm:2.5, minima:8, cor:EMP_CORES[S.empresas.length % EMP_CORES.length]};
-  openModal(`<h3>${e ? 'Editar empresa' : 'Nova empresa de mototáxi'}</h3>
-    <form id="fEmp" class="col mt">
+  const v = e || {nome:'', telefone:'', cidade:'', responsavel:'', tarifaBase:5, porKm:2.5, minima:8, cor:EMP_CORES[S.empresas.length % EMP_CORES.length]};
+  const tipo0 = v.docTipo || 'cnpj'; const doc0 = v.documento || v.cnpj || '';
+  const podeAcesso = !ehEmpresa();
+  const temAcesso = !!(e && e.uid);
+  openModal(`<div class="row between"><h3>${e ? (ehEmpresa() ? 'Dados da empresa' : 'Editar empresa') : 'Nova empresa de mototáxi'}</h3><button class="xbtn" data-act="closeModal" aria-label="Fechar">✕</button></div>
+    <form id="fEmp" class="col mt" novalidate>
       <label class="f">Nome da empresa *<input class="input" name="nome" required maxlength="60" value="${esc(v.nome)}" placeholder="Ex.: Rápido Mototáxi"></label>
-      <div class="grid2"><label class="f">Telefone *<input class="input" name="telefone" required maxlength="30" inputmode="tel" value="${esc(v.telefone)}" placeholder="(11) 3333-0000"></label><label class="f">CNPJ<input class="input" name="cnpj" maxlength="20" value="${esc(v.cnpj)}" placeholder="00.000.000/0001-00"></label></div>
-      <div class="grid2"><label class="f">Cidade<input class="input" name="cidade" maxlength="40" value="${esc(v.cidade)}"></label><label class="f">Responsável<input class="input" name="responsavel" maxlength="50" value="${esc(v.responsavel)}"></label></div>
+      <div class="f" style="display:flex;flex-direction:column;gap:6px"><b style="font-size:13.5px">Documento *</b>
+        <div class="seg" style="margin:0"><button type="button" class="${tipo0 === 'cnpj' ? 'on' : ''}" data-doc="cnpj">CNPJ</button><button type="button" class="${tipo0 === 'cpf' ? 'on' : ''}" data-doc="cpf">CPF</button></div>
+        <input type="hidden" name="docTipo" value="${tipo0}">
+        <input class="input" name="documento" inputmode="numeric" maxlength="18" value="${esc(doc0)}" placeholder="${tipo0 === 'cpf' ? '000.000.000-00' : '00.000.000/0000-00'}">
+        <span class="small muted" id="docAjuda">${tipo0 === 'cpf' ? 'Para quem trabalha como pessoa física.' : 'Para empresa com CNPJ.'}</span></div>
+      <div class="grid2"><label class="f">Telefone *<input class="input" name="telefone" required maxlength="30" inputmode="tel" value="${esc(v.telefone)}" placeholder="(81) 3633-0000"></label><label class="f">Responsável<input class="input" name="responsavel" maxlength="50" value="${esc(v.responsavel)}"></label></div>
+      <label class="f">Cidade<input class="input" name="cidade" maxlength="40" value="${esc(v.cidade || '')}" placeholder="Nazaré da Mata"></label>
+      ${podeAcesso ? (temAcesso
+        ? `<div class="note"><b>Acesso da empresa:</b> ${esc(e.emailAcesso || '')}<br><span class="small">A empresa entra no app com este e-mail e a senha que você criou. Se ela esquecer, use “Enviar link para trocar a senha”.</span><div class="mt"><button type="button" class="btn ghost sm" data-act="resetSenhaEmpresa" data-id="${esc(e.id)}">Enviar link para trocar a senha</button></div></div>`
+        : `<div class="card" style="background:var(--sup2)"><h3>Acesso da empresa ao app</h3><p class="small muted">Com este e-mail e senha a empresa entra no app e gerencia os próprios pilotos e corridas.</p>
+          <div class="col mt"><label class="f">E-mail de acesso *<input class="input" name="emailAcesso" type="email" maxlength="80" autocomplete="off" placeholder="empresa@email.com"></label>
+          <label class="f">Senha *<span>Mínimo de 6 caracteres. Anote e passe para a empresa.</span><div class="row" style="gap:8px"><input class="input" name="senhaAcesso" type="password" minlength="6" maxlength="40" autocomplete="new-password"><button type="button" class="btn ghost sm" data-act="verSenha">Mostrar</button></div></label></div></div>`) : ''}
+      <h3 class="mt">Tarifas</h3>
       <div class="grid3"><label class="f">Bandeirada (R$)<input class="input" name="tarifaBase" inputmode="decimal" value="${esc(v.tarifaBase)}"></label><label class="f">Por km (R$)<input class="input" name="porKm" inputmode="decimal" value="${esc(v.porKm)}"></label><label class="f">Mínima (R$)<input class="input" name="minima" inputmode="decimal" value="${esc(v.minima)}"></label></div>
       <div class="grid2" style="grid-template-columns:2fr 1fr"><label class="f">Como as corridas chegam aos pilotos<select class="input" name="distribuicao">
           <option value="escolha" ${v.distribuicao !== 'vez' ? 'selected' : ''}>Por escolha — todos recebem, o 1º que aceitar leva</option>
           <option value="vez" ${v.distribuicao === 'vez' ? 'selected' : ''}>Por vez — fila, um piloto de cada vez</option></select></label>
         <label class="f">Tempo p/ aceitar<select class="input" name="tempoOferta">${[20, 30, 45, 60, 90].map(s => `<option value="${s}" ${num(v.tempoOferta, 30) === s ? 'selected' : ''}>${s} s</option>`).join('')}</select></label></div>
       <p class="small muted" style="margin-top:-4px">Por vez: a corrida toca só para o piloto que está há mais tempo esperando. Se ele recusar ou não responder no tempo, passa para o próximo. Se ninguém da fila aceitar, ela é aberta para todos.</p>
-      <div class="f" style="display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:700;color:var(--muted)">Cor da marca<div class="colors">${EMP_CORES.map(c => `<label><input type="radio" name="cor" value="${c}" ${c === v.cor ? 'checked' : ''}><span class="sw" style="background:${c};width:18px;height:18px"></span></label>`).join('')}</div></div>
-      <div class="grid2 mt"><button type="button" class="btn ghost" data-act="closeModal">Cancelar</button><button class="btn">Salvar</button></div>
+      <div style="display:flex;flex-direction:column;gap:6px;font-size:13.5px;font-weight:700">Cor da marca<div class="colors">${EMP_CORES.map(c => `<label><input type="radio" name="cor" value="${c}" ${c === v.cor ? 'checked' : ''}><span class="sw" style="background:${c};width:18px;height:18px"></span></label>`).join('')}</div></div>
+      <div class="authErr" id="empErr" style="display:none"></div>
+      <div class="grid2 mt"><button type="button" class="btn ghost" data-act="closeModal">Cancelar</button><button class="btn" id="empSalvar">${e ? 'Salvar' : 'Cadastrar empresa'}</button></div>
     </form>`, c => {
-      c.querySelector('#fEmp').addEventListener('submit', async ev => {
-        ev.preventDefault(); const f = new FormData(ev.target);
-        const d = {nome:f.get('nome').trim(), telefone:f.get('telefone').trim(), cnpj:f.get('cnpj').trim(), cidade:f.get('cidade').trim(), responsavel:f.get('responsavel').trim(),
-          tarifaBase:num(f.get('tarifaBase'), 5), porKm:num(f.get('porKm'), 2.5), minima:num(f.get('minima'), 0), cor:f.get('cor') || '#FFC400', distribuicao:f.get('distribuicao') === 'vez' ? 'vez' : 'escolha', tempoOferta:num(f.get('tempoOferta'), 30), criadaEm:e ? e.criadaEm || Date.now() : Date.now()};
-        if (!d.nome || !d.telefone){ toast('Preencha nome e telefone'); return; }
-        try{ await Store.set('empresas', e ? e.id : uid(), d); closeModal(); toast(e ? 'Empresa atualizada' : 'Empresa cadastrada! Agora cadastre os pilotos.'); }catch(err){}
+      const f = c.querySelector('#fEmp'); const docIn = f.elements.documento; const tipoIn = f.elements.docTipo;
+      c.querySelectorAll('[data-doc]').forEach(b => b.addEventListener('click', () => {
+        tipoIn.value = b.dataset.doc; c.querySelectorAll('[data-doc]').forEach(x => x.classList.toggle('on', x === b));
+        docIn.placeholder = b.dataset.doc === 'cpf' ? '000.000.000-00' : '00.000.000/0000-00'; docIn.value = fmtDoc(b.dataset.doc, docIn.value);
+        c.querySelector('#docAjuda').textContent = b.dataset.doc === 'cpf' ? 'Para quem trabalha como pessoa física.' : 'Para empresa com CNPJ.'; docIn.focus();
+      }));
+      docIn.addEventListener('input', () => { docIn.value = fmtDoc(tipoIn.value, docIn.value); });
+      const erro = m => { const el = c.querySelector('#empErr'); el.textContent = m; el.style.display = m ? '' : 'none'; if (m) el.scrollIntoView({block:'nearest'}); };
+      f.addEventListener('submit', async ev => {
+        ev.preventDefault(); erro(''); const fd = new FormData(f);
+        const tipo = fd.get('docTipo') === 'cpf' ? 'cpf' : 'cnpj'; const documento = fmtDoc(tipo, fd.get('documento'));
+        const d = {nome:String(fd.get('nome')).trim(), telefone:String(fd.get('telefone')).trim(), docTipo:tipo, documento, cnpj:tipo === 'cnpj' ? documento : '',
+          cidade:String(fd.get('cidade')).trim(), responsavel:String(fd.get('responsavel')).trim(),
+          tarifaBase:num(fd.get('tarifaBase'), 5), porKm:num(fd.get('porKm'), 2.5), minima:num(fd.get('minima'), 0), cor:fd.get('cor') || '#0E6B45',
+          distribuicao:fd.get('distribuicao') === 'vez' ? 'vez' : 'escolha', tempoOferta:num(fd.get('tempoOferta'), 30)};
+        if (!d.nome || !d.telefone){ erro('Preencha o nome e o telefone da empresa.'); return; }
+        if (tipo === 'cpf' ? !cpfValido(documento) : !cnpjValido(documento)){ erro(`${tipo === 'cpf' ? 'CPF' : 'CNPJ'} inválido. Confira os números.`); return; }
+        const outro = S.empresas.find(x => x.id !== (e && e.id) && soDig(x.documento || x.cnpj) === soDig(documento));
+        if (outro){ erro(`Já existe uma empresa com este documento: ${outro.nome}.`); return; }
+        const email = String(fd.get('emailAcesso') || '').trim().toLowerCase(), senha = String(fd.get('senhaAcesso') || '');
+        const criarAcesso = podeAcesso && !temAcesso && (email || senha || !e);
+        if (criarAcesso){
+          if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ erro('Informe um e-mail de acesso válido para a empresa.'); return; }
+          if (senha.length < 6){ erro('A senha de acesso precisa ter pelo menos 6 caracteres.'); return; }
+          if (MASTERS.includes(email) || S.pilotos.some(p => (p.email || '').toLowerCase() === email)){ erro('Este e-mail já é usado pelo master ou por um piloto. Use outro.'); return; }
+        }
+        const btn = c.querySelector('#empSalvar'); btn.disabled = true; btn.textContent = 'Salvando…';
+        try{
+          const eid = e ? e.id : uid();
+          let acesso = {};
+          if (criarAcesso){
+            let novoUid;
+            try{ novoUid = await criarLoginSecundario(email, senha); }
+            catch(err){ erro(err && err.code === 'auth/email-already-in-use' ? 'Já existe uma conta com este e-mail. Use outro e-mail para a empresa.' : authMsg(err)); btn.disabled = false; btn.textContent = e ? 'Salvar' : 'Cadastrar empresa'; return; }
+            acesso = {uid:novoUid, emailAcesso:email};
+          }
+          const base = e ? (({id:_, ...r}) => r)(e) : {criadaEm:Date.now()};
+          await Store.set('empresas', eid, {...base, ...d, ...acesso});
+          if (acesso.uid) await Store.set('empresaUsers', acesso.uid, {empresaId:eid, email, criadoEm:Date.now()});
+          closeModal();
+          toast(e ? 'Empresa atualizada' : acesso.uid ? 'Empresa cadastrada! Passe o e-mail e a senha para ela entrar no app.' : 'Empresa cadastrada!');
+        }catch(err){ console.error(err); erro('Não foi possível salvar. Tente de novo.'); btn.disabled = false; btn.textContent = e ? 'Salvar' : 'Cadastrar empresa'; }
       });
     });
 }
@@ -1501,12 +1583,12 @@ function readPhoto(file){
 }
 function pilotoForm(id, empId){
   const p = id ? pil(id) : null;
-  const v = p || {empresaId:empId || S.filtroEmp || (S.empresas[0] && S.empresas[0].id) || '', nome:'', telefone:'', cnh:'', foto:'', moto:{marca:'Honda', modelo:'', ano:'', cor:'Preta', placa:''}};
+  const v = p || {empresaId:empId || S.filtroEmp || (escopoEmpresas()[0] && escopoEmpresas()[0].id) || '', nome:'', telefone:'', cnh:'', foto:'', moto:{marca:'Honda', modelo:'', ano:'', cor:'Preta', placa:''}};
   const m = v.moto || {}; let foto = v.foto || '';
   openModal(`<h3>${p ? 'Editar piloto' : 'Cadastrar mototaxista'}</h3>
     <form id="fPil" class="col mt">
       <label class="photoUp"><img id="phPrev" src="${safeImg(foto, v.nome || '?')}" alt=""><div><b>${foto ? 'Trocar foto do piloto' : 'Adicionar foto do piloto'}</b><div class="small muted">Toque para escolher uma foto (rosto bem visível)</div></div><input type="file" accept="image/*" id="phIn" hidden></label>
-      <label class="f">Empresa *<select class="input" name="empresaId" required>${S.empresas.map(e => `<option value="${esc(e.id)}" ${e.id === v.empresaId ? 'selected' : ''}>${esc(e.nome)}</option>`).join('')}</select></label>
+      <label class="f">Empresa *<select class="input" name="empresaId" required>${escopoEmpresas().map(e => `<option value="${esc(e.id)}" ${e.id === v.empresaId ? 'selected' : ''}>${esc(e.nome)}</option>`).join('')}</select></label>
       <label class="f">Nome completo *<input class="input" name="nome" required maxlength="60" value="${esc(v.nome)}" placeholder="Ex.: Carlos da Silva"></label>
       <div class="grid2"><label class="f">Telefone *<input class="input" name="telefone" required maxlength="30" inputmode="tel" value="${esc(v.telefone)}"></label><label class="f">Nº da CNH<input class="input" name="cnh" maxlength="20" value="${esc(v.cnh)}"></label></div>
       <label class="f">E-mail de login do piloto *<input class="input" name="email" type="email" required maxlength="80" value="${esc(v.email || '')}" placeholder="piloto@gmail.com"><span style="font-weight:500">O piloto entra no app com este e-mail (pelo Google ou criando senha) e cai direto no painel do piloto.</span></label>
@@ -1588,6 +1670,8 @@ function showSetup(first){
 /* ================= eventos ================= */
 const ACT = {
   authPerfil:d => { S.authPerfil = d.v; S.authErr = ''; if (d.v === 'passageiro' && S.role === 'cliente') S.role = undefined; renderAll(); },
+  verSenha:(d, el) => { const i = el.parentElement.querySelector('input'); const ver = i.type === 'password'; i.type = ver ? 'text' : 'password'; el.textContent = ver ? 'Ocultar' : 'Mostrar'; },
+  resetSenhaEmpresa:async d => { const e = emp(d.id); if (!e || !e.emailAcesso) return; try{ await Store.authMod.sendPasswordResetEmail(Store.auth, e.emailAcesso); toast(`Link enviado para ${e.emailAcesso}.`); }catch(err){ toast(authMsg(err)); } },
   pilTab:d => { S.pilTab = d.v; S.authErr = ''; renderAll(); },
   instalarApp:async () => { if (S.installEvt){ S.installEvt.prompt(); try{ await S.installEvt.userChoice; }catch(e){} S.installEvt = null; renderAll(); } },
   convitePiloto:d => convitePiloto(d.id),
@@ -1638,8 +1722,8 @@ const ACT = {
   novaEmpresa:() => empresaForm(),
   editEmpresa:d => empresaForm(d.id),
   delEmpresa:async d => { const e = emp(d.id); if (!e) return; const ps = S.pilotos.filter(p => p.empresaId === e.id);
-    if (await confirmar(`Excluir <b>${esc(e.nome)}</b>${ps.length ? ` e seus ${ps.length} piloto(s)` : ''}? Isso não pode ser desfeito.`)){ for (const p of ps) await Store.del('pilotos', p.id); await Store.del('empresas', e.id); toast('Empresa excluída'); } },
-  novoPiloto:d => { if (!S.empresas.length){ toast('Cadastre uma empresa primeiro'); return; } pilotoForm(null, d.emp); },
+    if (await confirmar(`Excluir <b>${esc(e.nome)}</b>${ps.length ? ` e seus ${ps.length} piloto(s)` : ''}? Isso não pode ser desfeito.`)){ for (const p of ps) await Store.del('pilotos', p.id); if (e.uid){ try{ await Store.del('empresaUsers', e.uid); }catch(err){} } await Store.del('empresas', e.id); toast('Empresa excluída'); } },
+  novoPiloto:d => { if (!escopoEmpresas().length){ toast('Cadastre uma empresa primeiro'); return; } pilotoForm(null, d.emp); },
   editPiloto:d => pilotoForm(d.id),
   delPiloto:async d => { const p = pil(d.id); if (p && await confirmar(`Excluir o piloto <b>${esc(p.nome)}</b>?`)){ await Store.del('pilotos', p.id); toast('Piloto excluído'); } },
   limpar:async () => { const fin = S.corridas.filter(r => !ATIVOS.includes(r.status)); if (await confirmar(`Remover ${fin.length} corrida(s) concluídas/canceladas do histórico?`, 'Limpar')){ for (const r of fin) await Store.del('corridas', r.id); toast('Histórico limpo'); } },
@@ -1674,13 +1758,15 @@ function computeRole(){
   if (!Store.auth) return 'local';
   if (!S.authReady || !S.user) return null;
   if (MASTERS.includes(userEmail()) && S.user.emailVerified) return 'master';
+  if (!S.empUserLoaded) return 'pending';
+  if (S.empUser && S.empUser.empresaId) return 'empresa';
   if (!S.loaded.pilotos) return 'pending';
   const p = pilotoDoUsuario();
   if (p) return S.user.emailVerified ? 'piloto' : 'piloto-verificar';
   return 'cliente';
 }
 function allowedViews(){
-  return ({local:['passageiro','piloto','master'], master:['master','passageiro'], piloto:['piloto'], cliente:['passageiro']})[S.role] || ['passageiro'];
+  return ({local:['passageiro','piloto','master'], master:['master','passageiro'], empresa:['master'], piloto:['piloto'], cliente:['passageiro']})[S.role] || ['passageiro'];
 }
 /* troca de perfil: ajusta assinaturas do banco e a tela inicial */
 function applyRole(){
@@ -1697,6 +1783,8 @@ function applyRole(){
   } else if (role !== 'piloto' && Store.auth) S.meuPiloto = '';
   if (role === 'cliente') S._unsubCorr = Store.subscribe('corridas', onCorridas, ['clienteId', S.user.uid]);
   if (role === 'master' || role === 'local') S._unsubCorr = Store.subscribe('corridas', onCorridas);
+  if (role === 'empresa'){ S.minhaEmpresa = S.empUser.empresaId; S.admTab = 'painel'; S._unsubCorr = Store.subscribe('corridas', onCorridas, ['empresaId', S.minhaEmpresa]); }
+  else S.minhaEmpresa = null;
   if (role === 'master') S._unsubClis = Store.subscribe('clientes', list => { S.clientes = list; renderAll(); });
   if (role === 'master' && S.user && !S.cliente) S.cliLoaded = true;
   const av = allowedViews(); const want = location.hash.slice(1);
@@ -1729,6 +1817,7 @@ function authGate(){
   if (!S.role || S.role === 'pending') return 'loading';
   if (S.role === 'piloto-verificar') return 'verificar';
   if (S.role === 'cliente' && S.authPerfil === 'piloto') return 'naoPiloto';
+  if ((S.role === 'cliente' || S.role === 'piloto' || S.role === 'piloto-verificar') && S.authPerfil === 'empresa') return 'naoEmpresa';
   if (S.role === 'cliente'){
     if (!S.cliLoaded) return 'loading';
     if (!S.cliente || !S.cliente.nome || !S.cliente.telefone) return 'perfil';
@@ -1742,6 +1831,13 @@ function initAuth(){
     S.user = u; S.authReady = true; S.authErr = '';
     if (S._unsubCli){ S._unsubCli(); S._unsubCli = null; }
     S.cliente = null; S.cliLoaded = false;
+    if (S._unsubEmpU){ S._unsubEmpU(); S._unsubEmpU = null; }
+    S.empUser = null; S.empUserLoaded = !u || MASTERS.includes((u && u.email || '').toLowerCase());
+    if (u && !S.empUserLoaded){
+      const { doc, onSnapshot } = Store.fs;
+      S._unsubEmpU = onSnapshot(doc(Store.db, 'empresaUsers', u.uid), s => { S.empUser = s.exists() ? s.data() : null; S.empUserLoaded = true; renderAll(); },
+        e => { S.empUser = null; S.empUserLoaded = true; renderAll(); });
+    }
     if (u && !MASTERS.includes((u.email || '').toLowerCase())){
       const { doc, onSnapshot } = Store.fs;
       S._unsubCli = onSnapshot(doc(Store.db, 'clientes', u.uid), s => { S.cliente = s.exists() ? s.data() : null; S.cliLoaded = true; renderAll(); },
@@ -1796,7 +1892,23 @@ function authHtml(gate){
       <p class="muted mt" style="text-align:center">O e-mail <b style="color:var(--text)">${esc(userEmail())}</b> não está na lista de pilotos do MotoJá. Peça ao administrador para cadastrar você com este e-mail, ou entre com outro.</p>
       <button class="btn block mt2" data-act="sair">Entrar com outro e-mail</button>
       <button class="btn ghost block mt" data-act="authPerfil" data-v="passageiro">Usar como passageiro</button></div>`;
-  const perfilSeg = window.APP_PILOTO ? '' : `<div class="seg" role="tablist"><button role="tab" aria-selected="${S.authPerfil !== 'piloto'}" class="${S.authPerfil !== 'piloto' ? 'on' : ''}" data-act="authPerfil" data-v="passageiro">Sou passageiro</button><button role="tab" aria-selected="${S.authPerfil === 'piloto'}" class="${S.authPerfil === 'piloto' ? 'on' : ''}" data-act="authPerfil" data-v="piloto">Sou piloto</button></div>`;
+  const perfis = [['passageiro', 'Passageiro'], ['piloto', 'Piloto'], ['empresa', 'Empresa']];
+  const perfilSeg = window.APP_PILOTO ? '' : `<div class="seg seg3" role="tablist">${perfis.map(([k, l]) => `<button role="tab" aria-selected="${S.authPerfil === k}" class="${S.authPerfil === k ? 'on' : ''}" data-act="authPerfil" data-v="${k}">${l}</button>`).join('')}</div>`;
+  if (gate === 'naoEmpresa') return `${HERO()}<div class="authcard"><h2 style="text-align:center">Este e-mail não é de uma empresa</h2>
+      <p class="muted mt" style="text-align:center">O e-mail <b style="color:var(--text)">${esc(userEmail())}</b> não tem acesso de empresa. O acesso é criado pelo administrador do MotoJá no cadastro da empresa.</p>
+      <button class="btn block mt2" data-act="sair">Entrar com outro e-mail</button></div>`;
+  if (S.authPerfil === 'empresa'){
+    return `${HERO()}<div class="authcard">${perfilSeg}
+      <h2 style="text-align:center">Área da empresa</h2>
+      <p class="muted mt" style="text-align:center">Entre com o e-mail e a senha que o administrador do MotoJá criou para a sua empresa.</p>
+      <form id="fAuth" class="col mt2">
+        <label class="f">E-mail da empresa<input class="input" name="email" type="email" required autocomplete="username"></label>
+        <label class="f">Senha<input class="input" name="senha" type="password" required minlength="6" autocomplete="current-password"></label>
+        ${err}
+        <button class="btn block mt">Entrar</button>
+        <button type="button" class="linkbtn" data-act="resetSenha">Esqueci minha senha</button>
+      </form></div>`;
+  }
   if (S.authPerfil === 'piloto'){
     const prim = S.pilTab === 'primeiro';
     return `${HERO()}<div class="authcard">${perfilSeg}
@@ -1846,6 +1958,7 @@ async function authSubmit(f){
   const email = String(d.get('email') || '').trim(), senha = String(d.get('senha') || '');
   btn.disabled = true; S.authErr = '';
   try{
+    if (S.authPerfil === 'empresa'){ await A.signInWithEmailAndPassword(Store.auth, email, senha); return; }
     if (S.authPerfil === 'piloto'){
       if (S.pilTab === 'primeiro'){
         if (S.loaded.pilotos && !S.pilotos.some(x => (x.email || '').toLowerCase() === email.toLowerCase())){ S.authErr = 'Este e-mail não está cadastrado como piloto. Confira o e-mail ou fale com o administrador.'; _renderAuthKeep(f); return; }
@@ -1890,13 +2003,21 @@ function renderContaBtn(){
   b.style.display = show ? '' : 'none';
   if (!show) return;
   const me = S.role === 'piloto' ? pil(S.meuPiloto) : null;
-  const src = me ? safeImg(me.foto, me.nome) : S.role === 'master' ? avatarFor('M', '#0E6B45') : safeImg(S.cliente && S.cliente.foto, (S.cliente && S.cliente.nome) || userEmail());
+  const ee = S.role === 'empresa' ? emp(S.minhaEmpresa) : null;
+  const src = ee ? avatarFor(ee.nome, safeColor(ee.cor)) : me ? safeImg(me.foto, me.nome) : S.role === 'master' ? avatarFor('M', '#0E6B45') : safeImg(S.cliente && S.cliente.foto, (S.cliente && S.cliente.nome) || userEmail());
   if (b._src !== src){ b.innerHTML = `<img src="${src}" alt="">`; b._src = src; }
 }
 function contaModal(){
   if (!S.user) return;
   if (S.role !== 'cliente'){
     const me = S.role === 'piloto' ? pil(S.meuPiloto) : null; const e = me && emp(me.empresaId);
+    if (S.role === 'empresa'){ const e = emp(S.minhaEmpresa) || {};
+      openModal(`<div class="row between"><h3>Conta da empresa</h3><button class="xbtn" data-act="closeModal" aria-label="Fechar">✕</button></div>
+        <div class="row mt"><div class="elogo" style="background:${safeColor(e.cor)};width:56px;height:56px">${esc(initials(e.nome || 'E'))}</div><div><b style="font-size:17px">${esc(e.nome || '')}</b><div class="small muted">${esc(userEmail())}</div><div class="small muted">${esc(docTexto(e))}</div></div></div>
+        <p class="note mt">Você gerencia os pilotos, as tarifas e acompanha as corridas da sua empresa. Para trocar a senha, saia e use “Esqueci minha senha”.</p>
+        <button class="btn danger block mt2" data-act="sair">Sair da conta</button>`);
+      return;
+    }
     openModal(`<div class="row between"><h3>${S.role === 'master' ? '👑 Conta master' : 'Minha conta de piloto'}</h3><button class="xbtn" data-act="closeModal" aria-label="Fechar">✕</button></div>
       <div class="driver mt"><img class="avatar lg" src="${me ? safeImg(me.foto, me.nome) : avatarFor('M', '#0E6B45')}" alt=""><div><b style="font-size:17px">${esc(me ? me.nome : (S.user.displayName || 'Administrador'))}</b><div class="small muted">${esc(userEmail())}</div>${e ? `<div class="small muted">${esc(e.nome)}</div>` : ''}</div></div>
       ${me ? `<p class="note mt">Seus dados (foto, moto, placa) são atualizados pelo administrador. Peça a ele se precisar mudar algo.</p>` : `<p class="note mt">Você tem acesso total: empresas, pilotos, clientes e corridas. Também pode testar o app pela aba <b>Passageiro</b>.</p>`}
