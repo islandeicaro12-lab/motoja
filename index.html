@@ -24,7 +24,7 @@ main{flex:1;position:relative;overflow:hidden}
 .view{position:absolute;inset:0;display:none;overflow:auto;-webkit-overflow-scrolling:touch}
 .view.active{display:block}
 #view-passageiro{overflow:hidden}
-nav.bottom{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);background:var(--panel);z-index:10}
+nav.bottom{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;border-top:1px solid var(--line);background:var(--panel);z-index:10}
 nav.bottom button{background:none;border:0;padding:9px 4px 11px;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;position:relative}
 nav.bottom button .ic{font-size:20px;filter:grayscale(1);opacity:.7}
 nav.bottom button.on{color:var(--brand)}
@@ -110,7 +110,12 @@ label.f{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:70
 .sw{width:14px;height:14px;border-radius:50%;border:1px solid #ffffff44;display:inline-block;flex:none}
 .plate{display:inline-block;background:#f5f5f5;color:#111;font-weight:800;letter-spacing:.12em;padding:4px 10px;border-radius:6px;border-top:5px solid #1d4ed8;font-size:15px;font-family:ui-monospace,Menlo,monospace}
 .tabs{display:flex;gap:6px;padding:12px 14px 0;position:sticky;top:0;background:var(--bg);z-index:3;padding-bottom:10px;border-bottom:1px solid var(--line)}
-.tabs .chip{flex:1;text-align:center}
+.tabs{overflow-x:auto;scrollbar-width:none}
+.tabs .chip{flex:1 0 auto;text-align:center;white-space:nowrap}
+.dash{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.dash .stat b{font-size:22px}
+.bar{height:8px;border-radius:8px;background:var(--panel2);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--brand);border-radius:8px}
 .empty{text-align:center;padding:28px 16px;color:var(--muted);border:1px dashed var(--line);border-radius:18px}
 .empty .big{font-size:36px;margin-bottom:8px}
 .spinner{width:54px;height:54px;border-radius:50%;border:4px solid #ffc40033;border-top-color:var(--brand);animation:spin 1s linear infinite;margin:6px auto 12px}
@@ -203,7 +208,6 @@ a.btn{text-decoration:none}
         </div>
         <div class="sugs" id="sugs" style="display:none"></div>
       </div>
-      <div class="authview" id="authView" style="display:none"></div>
       <div class="sheet" id="sheet"><div class="grabzone" data-act="sheetToggle"><div class="grab"></div></div><div id="sheetBody"></div></div>
     </section>
     <section id="view-piloto" class="view">
@@ -211,16 +215,17 @@ a.btn{text-decoration:none}
       <div class="pmapwrap" id="pilotMapWrap" style="display:none;margin-top:12px"><div class="map" id="pilotMap"></div></div>
       <div id="pilotBottom" style="padding:12px 14px 24px"></div>
     </section>
-    <section id="view-empresas" class="view">
+    <section id="view-master" class="view">
       <div class="tabs" id="admTabs"></div>
       <div id="admBody" style="padding:14px 14px 28px"></div>
     </section>
+    <div class="authview" id="authView" style="display:none"></div>
     <div class="splash" id="splash"><div style="text-align:center"><div class="spinner"></div><div class="muted small">Carregando MotoJá…</div></div></div>
   </main>
-  <nav class="bottom" id="nav">
+  <nav class="bottom" id="nav" style="display:none">
     <button data-act="nav" data-v="passageiro" class="on"><span class="ic">🧍</span>Passageiro</button>
     <button data-act="nav" data-v="piloto"><span class="ic">🏍️</span>Piloto<span class="cnt" id="pilotCnt" style="display:none"></span></button>
-    <button data-act="nav" data-v="empresas"><span class="ic">🏢</span>Empresas</button>
+    <button data-act="nav" data-v="master"><span class="ic">👑</span>Master</button>
   </nav>
 </div>
 <div id="modal" class="modal hidden"><div class="modal-card" id="modalCard"></div></div>
@@ -238,6 +243,8 @@ const CONFIG = {
   CENTRO_INICIAL: { lat: -23.5505, lng: -46.6333 },
   // Configuração do Firebase (Firestore) para compartilhar dados entre celulares.
   // Deixe null para salvar só no aparelho (bom para testar).
+  // E-mails com acesso ao painel MASTER (precisam bater com as regras do Firestore)
+  MASTERS: ['islandeicaro12@gmail.com'],
   FIREBASE: {
     apiKey: "AIzaSyBWpmiPdZzGkbIBPiKp2RfRMXsKgAK6jXg",
     authDomain: "motoja-mototaxi.firebaseapp.com",
@@ -510,14 +517,16 @@ const Store = {
   key: c => 'mt_' + c,
   readLocal(c){ return LS.get(this.key(c), {}); },
   notify(c){ (this.ls[c] || []).forEach(f => f()); },
-  subscribe(c, cb){
+  subscribe(c, cb, filter){
     if (this.mode === 'cloud'){
-      const { collection, onSnapshot } = this.fs;
-      return onSnapshot(collection(this.db, c), s => { setSync('ok'); cb(s.docs.map(d => ({...d.data(), id:d.id}))); },
-        e => { console.error(e); setSync('warn', e.code === 'permission-denied' ? 'sem permissão no Firestore' : 'erro ao sincronizar'); });
+      const { collection, onSnapshot, query, where } = this.fs;
+      const ref = filter ? query(collection(this.db, c), where(filter[0], '==', filter[1])) : collection(this.db, c);
+      return onSnapshot(ref, s => { setSync('ok'); cb(s.docs.map(d => ({...d.data(), id:d.id}))); },
+        e => { console.error(c, e); setSync('warn', e.code === 'permission-denied' ? 'sem permissão' : 'erro ao sincronizar'); });
     }
-    const fire = () => cb(Object.values(this.readLocal(c)));
+    const fire = () => cb(Object.values(this.readLocal(c)).filter(x => !filter || x[filter[0]] === filter[1]));
     (this.ls[c] = this.ls[c] || []).push(fire); fire();
+    return () => { this.ls[c] = (this.ls[c] || []).filter(f => f !== fire); };
   },
   async run(fn){
     try{ return await fn(); }
@@ -736,10 +745,6 @@ function empresaOpts(km){
   }).sort((a, b) => (b.online > 0) - (a.online > 0) || a.preco - b.preco);
 }
 function renderPass(){
-  const gate = authGate();
-  $('#authView').style.display = gate === 'ok' ? 'none' : '';
-  renderContaBtn();
-  if (gate !== 'ok'){ patch($('#authView'), authHtml(gate)); return; }
   const body = $('#sheetBody'); const r = myRide();
   $('#sheet').classList.toggle('min', !!S.sheetMin);
   if (S.minha && !r && S.loaded.corridas){ S.minha = null; LS.set('mtu_minha', null); }
@@ -747,7 +752,7 @@ function renderPass(){
   let h = '';
   if (r){ h = rideSheet(r); }
   else if (!S.empresas.length){
-    h = `<div class="empty"><div class="big">🏢</div><b>Nenhuma empresa de mototáxi cadastrada</b><p class="small mt">Cadastre empresas e pilotos na aba <b>Empresas</b> para começar a pedir corridas.</p><button class="btn mt" data-act="nav" data-v="empresas">Ir para Empresas</button></div>`;
+    h = `<div class="empty"><div class="big">🏢</div><b>Nenhuma empresa de mototáxi cadastrada</b>${S.role === 'cliente' ? '<p class="small mt">Ainda não há empresas disponíveis na sua região. Volte em breve!</p>' : '<p class="small mt">Cadastre empresas e pilotos no painel <b>Master</b> para começar a pedir corridas.</p><button class="btn mt" data-act="nav" data-v="master">Ir para o Master</button>'}</div>`;
   }
   else if (!S.origem){
     const n = S.pilotos.filter(p => p.online && !ocupado(p.id)).length;
@@ -798,8 +803,8 @@ function tripBox(r){
 function rideSheet(r){
   if (r.status === 'procurando') return `<div style="text-align:center"><div class="spinner"></div><h2>Procurando piloto…</h2><p class="muted small mt">Seu pedido foi enviado para os pilotos da <b style="color:var(--text)">${esc(r.empresaNome)}</b>.</p></div>
     ${tripBox(r)}
-    <div class="grid2 mt"><button class="btn ghost" data-act="cancelar">Cancelar</button><button class="btn ghost" data-act="simular" title="Modo demonstração">🧪 Simular aceite</button></div>
-    <p class="small muted mt" style="text-align:center">Testando sozinho? “Simular aceite” atribui um piloto da empresa e acelera o trajeto.</p>`;
+    ${S.role === 'master' || S.role === 'local' ? `<div class="grid2 mt"><button class="btn ghost" data-act="cancelar">Cancelar</button><button class="btn ghost" data-act="simular" title="Modo demonstração">🧪 Simular aceite</button></div>
+    <p class="small muted mt" style="text-align:center">Modo teste do master: “Simular aceite” atribui um piloto da empresa e acelera o trajeto.</p>` : `<button class="btn ghost block mt" data-act="cancelar">Cancelar pedido</button>`}`;
   if (r.status === 'aceita' || r.status === 'em_andamento'){
     const lbl = r.status === 'aceita' ? 'Piloto a caminho' : 'Em viagem ao destino';
     return `<div class="row between"><span class="tag b pulse">● ${lbl}</span>${r.demo ? '<span class="tag">🧪 demonstração</span>' : `<span class="tag" id="gpsTag">📡 GPS do piloto</span>`}</div>
@@ -813,7 +818,7 @@ function rideSheet(r){
   return `<div style="text-align:center"><div style="font-size:44px">🚫</div><h2>Corrida cancelada</h2><p class="muted small mt">${r.canceladaPor === 'passageiro' ? 'Você cancelou esta corrida.' : 'A corrida foi cancelada.'}</p></div><button class="btn block mt" data-act="nova">Pedir outra corrida</button>`;
 }
 async function pedir(){
-  if (Store.auth && (!S.user || !S.cliente)){ toast('Entre na sua conta para pedir.'); renderPass(); return; }
+  if (Store.auth && (!S.user || (S.role === 'cliente' && !S.cliente))){ toast('Entre na sua conta para pedir.'); renderAll(); return; }
   if (S.cliente){ S.pNome = S.cliente.nome || ''; S.pTel = S.cliente.telefone || ''; }
   S.pNome = ($('#pNome')?.value || S.pNome).trim(); S.pTel = ($('#pTel')?.value || S.pTel).trim();
   if (!S.pNome){ toast('Informe seu nome'); $('#pNome')?.focus(); return; }
@@ -868,11 +873,12 @@ function renderPiloto(){
   const me = pil(S.meuPiloto);
   if (S.meuPiloto && !me && S.loaded.pilotos){ S.meuPiloto = ''; LS.set('mtu_piloto', ''); }
   let top = '';
-  if (!S.pilotos.length){
-    top = `<div class="empty"><div class="big">🏍️</div><b>Nenhum piloto cadastrado</b><p class="small mt">As empresas cadastram seus mototaxistas na aba <b>Empresas → Pilotos</b>.</p><button class="btn mt" data-act="nav" data-v="empresas">Cadastrar pilotos</button></div>`;
+  const logado = S.role === 'piloto';
+  if (!S.pilotos.length && !logado){
+    top = `<div class="empty"><div class="big">🏍️</div><b>Nenhum piloto cadastrado</b><p class="small mt">O master cadastra os mototaxistas no painel <b>Master → Pilotos</b>.</p><button class="btn mt" data-act="nav" data-v="master">Cadastrar pilotos</button></div>`;
   } else {
     const groups = S.empresas.map(e => ({e, ps:S.pilotos.filter(p => p.empresaId === e.id)})).filter(g => g.ps.length);
-    top = `<label class="f">Entrar como piloto<select class="input" id="selPiloto"><option value="">Selecione seu nome…</option>${groups.map(g => `<optgroup label="${esc(g.e.nome)}">${g.ps.map(p => `<option value="${esc(p.id)}" ${p.id === S.meuPiloto ? 'selected' : ''}>${esc(p.nome)} — ${esc(p.moto && p.moto.placa || '')}</option>`).join('')}</optgroup>`).join('')}</select></label>`;
+    top = logado ? `<h2>Painel do piloto</h2>` : `<label class="f">Entrar como piloto<select class="input" id="selPiloto"><option value="">Selecione seu nome…</option>${groups.map(g => `<optgroup label="${esc(g.e.nome)}">${g.ps.map(p => `<option value="${esc(p.id)}" ${p.id === S.meuPiloto ? 'selected' : ''}>${esc(p.nome)} — ${esc(p.moto && p.moto.placa || '')}</option>`).join('')}</optgroup>`).join('')}</select></label>`;
     if (me){
       const e = emp(me.empresaId); const m = me.moto || {};
       const hoje = new Date().toDateString();
@@ -883,6 +889,7 @@ function renderPiloto(){
         <button class="switch ${me.online ? 'on' : ''}" data-act="toggleOnline" aria-label="Ficar online"></button></div>
         <div class="row between mt small"><span style="color:${me.online ? '#86efac' : 'var(--muted)'};font-weight:700">${me.online ? '● Você está online' : '○ Você está offline'}</span><span class="muted">Hoje: <b style="color:var(--text)">${feitas.length}</b> corridas · <b style="color:var(--text)">${BRL(feitas.reduce((s, r) => s + num(r.valor), 0))}</b></span></div>
         ${me.online ? `<div class="small mt" style="color:${S.gpsErr ? '#fca5a5' : 'var(--muted)'}">${S.gpsErr ? '⚠ GPS bloqueado — libere a localização para os passageiros verem você no mapa.' : S.myPos ? '📡 GPS ativo — sua posição é compartilhada com o passageiro.' : '📡 Ativando GPS…'}</div>` : ''}</div>`;
+      if (logado) top += pilotStats(me);
     }
   }
   patch($('#pilotTop'), top);
@@ -908,9 +915,24 @@ function renderPiloto(){
     if (!me.online) b = `<div class="empty"><div class="big">😴</div><b>Você está offline</b><p class="small mt">Ative o botão acima para receber pedidos de corrida da ${esc(emp(me.empresaId)?.nome || 'sua empresa')}.</p></div>`;
     else if (!pend.length) b = `<div class="empty"><div class="spinner" style="width:40px;height:40px"></div><b>Aguardando pedidos…</b><p class="small mt">Novos pedidos aparecem aqui automaticamente.</p></div>`;
     else b = `<h3 class="mb">Pedidos disponíveis (${pend.length})</h3><div class="list">${pend.map(r => { const dist = S.myPos ? hav(S.myPos, r.origem) / 1000 : null; return `<div class="card"><div class="row between"><b>${esc(r.passageiro && r.passageiro.nome)}</b><span class="small muted">${dist != null ? `📍 ${dist.toFixed(1).replace('.', ',')} km de você · ` : ''}${ago(r.criadaEm)}</span></div>${tripBox(r)}<button class="btn block mt" data-act="aceitar" data-id="${esc(r.id)}">Aceitar corrida · ${BRL(r.valor)}</button></div>`; }).join('')}</div>`;
-  } else if (S.pilotos.length) b = `<p class="note">Selecione seu nome acima para ficar online e receber corridas. Dica: envie o link do app com <b>#piloto</b> no final para os seus mototaxistas.</p>`;
+  } else if (logado) b = `<div class="empty"><div class="big">🔎</div><b>Seu cadastro de piloto não foi encontrado</b><p class="small mt">Fale com o administrador do MotoJá.</p></div>`;
+  else if (S.pilotos.length) b = `<p class="note">Selecione seu nome acima para ficar online e receber corridas. Dica: envie o link do app com <b>#piloto</b> no final para os seus mototaxistas.</p>`;
+  if (logado && me && !act){
+    const hist = S.corridas.filter(r => r.pilotoId === me.id && (r.status === 'concluida' || r.status === 'cancelada')).sort((a, b) => (b.concluidaEm || b.criadaEm) - (a.concluidaEm || a.criadaEm)).slice(0, 15);
+    b += `<h3 class="mt2 mb">Minhas últimas corridas</h3>${hist.length ? `<div class="list">${hist.map(r => { const [l, c] = STATUS[r.status] || [r.status, '']; return `<div class="card" style="padding:12px"><div class="row between"><span class="tag ${c}">${esc(l)}</span><span class="small muted">${new Date(r.concluidaEm || r.criadaEm).toLocaleString('pt-BR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'})}</span></div><div class="small mt"><b>${esc(r.passageiro && r.passageiro.nome)}</b>${r.avaliacao ? ' · ' + '⭐'.repeat(clamp(r.avaliacao|0, 1, 5)) : ''}</div>${tripBox(r)}</div>`; }).join('')}</div>` : `<div class="empty small">Suas corridas finalizadas aparecem aqui.</div>`}`;
+  }
   patch($('#pilotBottom'), b);
   pilotGps();
+}
+function pilotStats(me){
+  const done = S.corridas.filter(r => r.pilotoId === me.id && r.status === 'concluida');
+  const t = r => r.concluidaEm || r.criadaEm; const now = new Date();
+  const hoje = done.filter(r => new Date(t(r)).toDateString() === now.toDateString());
+  const sem = done.filter(r => Date.now() - t(r) < 7 * 864e5);
+  const mes = done.filter(r => { const d = new Date(t(r)); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); });
+  const notas = done.filter(r => r.avaliacao); const media = notas.length ? (notas.reduce((s, r) => s + r.avaliacao, 0) / notas.length) : 0;
+  const soma = a => BRL(a.reduce((s, r) => s + num(r.valor), 0));
+  return `<div class="dash mt"><div class="stat"><b>${soma(hoje)}</b><span>hoje · ${hoje.length} corrida${hoje.length === 1 ? '' : 's'}</span></div><div class="stat"><b>${soma(sem)}</b><span>últimos 7 dias</span></div><div class="stat"><b>${soma(mes)}</b><span>este mês · ${mes.length}</span></div><div class="stat"><b>${media ? media.toFixed(1).replace('.', ',') + ' ⭐' : '—'}</b><span>avaliação (${notas.length})</span></div></div>`;
 }
 function renderPilotCount(){
   const me = pil(S.meuPiloto); const n = me && me.online && !myActive() ? pendentesPara(me).length : 0;
@@ -919,7 +941,7 @@ function renderPilotCount(){
 /* GPS do piloto: compartilha a posição enquanto está online */
 let gpsWatch = null, lastPilotWrite = {t:0, pos:null}, lastRideWrite = 0;
 function pilotGps(){
-  const me = pil(S.meuPiloto);
+  const me = (S.role === 'piloto' || S.role === 'local') ? pil(S.meuPiloto) : null;
   const want = !!(me && me.online && navigator.geolocation);
   if (want && gpsWatch == null){
     gpsWatch = navigator.geolocation.watchPosition(p => {
@@ -951,11 +973,24 @@ async function aceitar(id){
 
 /* ================= EMPRESAS (admin) ================= */
 function renderAdmin(){
-  patch($('#admTabs'), [['empresas','🏢 Empresas'],['pilotos','🏍️ Pilotos'],['corridas','🧾 Corridas']].map(([k, l]) => `<button class="chip ${S.admTab === k ? 'on' : ''}" data-act="admTab" data-v="${k}">${l}</button>`).join(''));
+  if (!['painel','empresas','pilotos','clientes','corridas'].includes(S.admTab)) S.admTab = 'painel';
+  patch($('#admTabs'), [['painel','📊 Painel'],['empresas','🏢 Empresas'],['pilotos','🏍️ Pilotos'],['clientes','👥 Clientes'],['corridas','🧾 Corridas']].map(([k, l]) => `<button class="chip ${S.admTab === k ? 'on' : ''}" data-act="admTab" data-v="${k}">${l}</button>`).join(''));
   const online = S.pilotos.filter(p => p.online).length;
   const hoje = new Date().toDateString();
   const ch = S.corridas.filter(r => new Date(r.criadaEm).toDateString() === hoje).length;
-  let h = `<div class="stats mb"><div class="stat"><b>${S.empresas.length}</b><span>empresas</span></div><div class="stat"><b>${S.pilotos.length}</b><span>pilotos</span></div><div class="stat"><b style="color:#86efac">${online}</b><span>online</span></div><div class="stat"><b>${ch}</b><span>corridas hoje</span></div></div>`;
+  let h = S.admTab === 'painel' ? '' : `<div class="stats mb"><div class="stat"><b>${S.empresas.length}</b><span>empresas</span></div><div class="stat"><b>${S.pilotos.length}</b><span>pilotos</span></div><div class="stat"><b style="color:#86efac">${online}</b><span>online</span></div><div class="stat"><b>${ch}</b><span>corridas hoje</span></div></div>`;
+  if (S.admTab === 'painel') h += masterDash();
+  if (S.admTab === 'clientes'){
+    const cl = (S.clientes || []).slice().sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0));
+    h += `<div class="row between mb"><h3>Clientes cadastrados</h3><span class="tag">${cl.length}</span></div>`;
+    h += `<input class="input mb" id="buscaCli" placeholder="Buscar por nome, telefone ou e-mail" value="${esc(S.buscaCli || '')}">`;
+    const q = (S.buscaCli || '').toLowerCase();
+    const lista = cl.filter(c => !q || [c.nome, c.telefone, c.email].join(' ').toLowerCase().includes(q));
+    h += lista.length ? `<div class="list">${lista.map(c => { const rs = S.corridas.filter(r => r.clienteId === c.id); const fin = rs.filter(r => r.status === 'concluida');
+      return `<div class="card"><div class="driver"><img class="avatar" src="${safeImg(c.foto, c.nome)}" alt=""><div style="flex:1;min-width:0"><b>${esc(c.nome)}</b><div class="small muted">${esc(c.telefone || '')}${c.email ? ' · ' + esc(c.email) : ''}</div>
+        <div class="row wrap mt" style="gap:6px"><span class="tag">${rs.length} pedido${rs.length === 1 ? '' : 's'}</span><span class="tag on">${fin.length} concluída${fin.length === 1 ? '' : 's'}</span><span class="tag y">${BRL(fin.reduce((s, r) => s + num(r.valor), 0))}</span>${c.criadoEm ? `<span class="tag">desde ${new Date(c.criadoEm).toLocaleDateString('pt-BR')}</span>` : ''}</div></div></div></div>`; }).join('')}</div>`
+      : `<div class="empty"><div class="big">👥</div><b>${cl.length ? 'Nenhum cliente encontrado' : 'Nenhum cliente cadastrado ainda'}</b><p class="small mt">Os clientes aparecem aqui quando criam a conta no app.</p></div>`;
+  }
   if (S.admTab === 'empresas'){
     h += `<div class="row between mb"><h3>Empresas de mototáxi</h3><button class="btn sm" data-act="novaEmpresa">＋ Nova empresa</button></div>`;
     if (!S.empresas.length) h += `<div class="empty"><div class="big">🏢</div><b>Nenhuma empresa ainda</b><p class="small mt">Cadastre a primeira empresa de mototáxi. Cada empresa define suas tarifas e cadastra seus pilotos.</p><div class="row mt" style="justify-content:center;flex-wrap:wrap"><button class="btn" data-act="novaEmpresa">Cadastrar empresa</button><button class="btn ghost" data-act="seed">🧪 Criar dados de exemplo</button></div></div>`;
@@ -977,6 +1012,7 @@ function renderAdmin(){
       else h += `<div class="list">${ps.map(p => { const m = p.moto || {}; const e = emp(p.empresaId); const busy = ocupado(p.id);
         return `<div class="card"><div class="driver"><img class="avatar" src="${safeImg(p.foto, p.nome)}" alt=""><div style="flex:1;min-width:0"><div class="row between"><b>${esc(p.nome)}</b><span class="tag ${busy ? 'b' : p.online ? 'on' : ''}">${busy ? 'em corrida' : p.online ? '● online' : 'offline'}</span></div>
           <div class="small muted">${esc(e ? e.nome : '—')}${p.telefone ? ' · ' + esc(p.telefone) : ''}</div>
+          <div class="small mt" style="color:${p.email ? (p.uid ? '#86efac' : 'var(--muted)') : '#fcd34d'}">${p.email ? `🔑 ${esc(p.email)} · ${p.uid ? 'já entrou no app' : 'ainda não entrou'}` : '⚠ sem e-mail de login — edite para o piloto poder entrar'}</div>
           <div class="row mt small" style="gap:8px;flex-wrap:wrap"><span class="sw" style="background:${corHex(m.cor)}"></span><span>${esc([m.marca, m.modelo, m.ano].filter(Boolean).join(' '))} · ${esc(m.cor || '')}</span><span class="plate" style="font-size:11px;padding:2px 6px;border-top-width:3px">${esc(m.placa || '')}</span></div></div></div>
           <div class="row end mt" style="gap:8px"><button class="btn ghost sm" data-act="editPiloto" data-id="${esc(p.id)}">Editar</button><button class="btn danger sm" data-act="delPiloto" data-id="${esc(p.id)}" aria-label="Excluir">🗑</button></div></div>`; }).join('')}</div>`;
     }
@@ -992,6 +1028,39 @@ function renderAdmin(){
       <div class="small mt"><b>${esc(r.passageiro && r.passageiro.nome)}</b>${r.pilotoNome ? ` → 🏍️ ${esc(r.pilotoNome)}` : ''}${r.avaliacao ? ` · ${'⭐'.repeat(clamp(r.avaliacao|0, 1, 5))}` : ''}</div>${tripBox(r)}</div>`; }).join('')}</div>`;
   }
   patch($('#admBody'), h);
+}
+
+function masterDash(){
+  const now = new Date(); const t = r => r.concluidaEm || r.criadaEm;
+  const mesmoDia = (ts, d) => new Date(ts).toDateString() === d.toDateString();
+  const doMes = ts => { const d = new Date(ts); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); };
+  const done = S.corridas.filter(r => r.status === 'concluida');
+  const hoje = done.filter(r => mesmoDia(t(r), now)), mes = done.filter(r => doMes(t(r)));
+  const pedHoje = S.corridas.filter(r => mesmoDia(r.criadaEm, now));
+  const cancHoje = pedHoje.filter(r => r.status === 'cancelada').length;
+  const ativos = S.corridas.filter(r => ATIVOS.includes(r.status)).sort((a, b) => b.criadaEm - a.criadaEm);
+  const soma = a => a.reduce((s, r) => s + num(r.valor), 0);
+  const online = S.pilotos.filter(p => p.online).length;
+  const dias = [...Array(7)].map((_, i) => { const d = new Date(now); d.setDate(d.getDate() - 6 + i); const v = soma(done.filter(r => mesmoDia(t(r), d))); return {d, v}; });
+  const maxDia = Math.max(1, ...dias.map(x => x.v));
+  const porEmp = S.empresas.map(e => { const rs = mes.filter(r => r.empresaId === e.id); return {e, n:rs.length, v:soma(rs)}; }).sort((a, b) => b.v - a.v);
+  const maxEmp = Math.max(1, ...porEmp.map(x => x.v));
+  const porPil = S.pilotos.map(p => { const rs = mes.filter(r => r.pilotoId === p.id); const nt = rs.filter(r => r.avaliacao); return {p, n:rs.length, v:soma(rs), m:nt.length ? nt.reduce((s, r) => s + r.avaliacao, 0) / nt.length : 0}; }).filter(x => x.n).sort((a, b) => b.v - a.v).slice(0, 5);
+  return `<div class="dash">
+      <div class="stat"><b style="color:var(--brand)">${BRL(soma(hoje))}</b><span>faturamento hoje</span></div>
+      <div class="stat"><b>${BRL(soma(mes))}</b><span>faturamento no mês</span></div>
+      <div class="stat"><b>${pedHoje.length}</b><span>pedidos hoje · ${hoje.length} concluídos${cancHoje ? ' · ' + cancHoje + ' cancel.' : ''}</span></div>
+      <div class="stat"><b style="color:#93c5fd">${ativos.length}</b><span>corridas agora</span></div>
+      <div class="stat"><b style="color:#86efac">${online}<small class="muted" style="font-size:13px"> / ${S.pilotos.length}</small></b><span>pilotos online</span></div>
+      <div class="stat"><b>${(S.clientes || []).length}</b><span>clientes cadastrados</span></div>
+      <div class="stat"><b>${S.empresas.length}</b><span>empresas</span></div>
+      <div class="stat"><b>${mes.length ? BRL(soma(mes) / mes.length) : '—'}</b><span>ticket médio (mês)</span></div>
+    </div>
+    <div class="card mt"><h3>Faturamento — últimos 7 dias</h3>
+      <div class="row mt" style="align-items:flex-end;gap:6px;height:120px">${dias.map(x => `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end"><span class="small muted" style="font-size:10px">${x.v ? Math.round(x.v) : ''}</span><div style="width:100%;height:${Math.max(3, x.v / maxDia * 80)}px;background:${mesmoDia(x.d, now) ? 'var(--brand)' : '#3f3f46'};border-radius:6px 6px 2px 2px"></div><span class="small muted" style="font-size:10px">${x.d.toLocaleDateString('pt-BR', {weekday:'short'}).replace('.', '')}</span></div>`).join('')}</div></div>
+    <div class="card mt"><h3>Corridas agora (${ativos.length})</h3>${ativos.length ? `<div class="list mt">${ativos.slice(0, 8).map(r => { const [l, c] = STATUS[r.status] || [r.status, '']; return `<div style="border-top:1px solid var(--line);padding-top:10px"><div class="row between"><span class="tag ${c}">${esc(l)}</span><span class="small muted">${ago(r.criadaEm)}</span></div><div class="small mt"><b>${esc(r.passageiro && r.passageiro.nome)}</b>${r.pilotoNome ? ' → 🏍️ ' + esc(r.pilotoNome) : ''} · ${esc(r.empresaNome)} · <b>${BRL(r.valor)}</b></div><div class="small muted">${esc(r.origem.end)} → ${esc(r.destino.end)}</div></div>`; }).join('')}</div>` : `<p class="small muted mt">Nenhuma corrida em andamento.</p>`}</div>
+    <div class="card mt"><h3>Empresas no mês</h3>${porEmp.length ? `<div class="list mt">${porEmp.map(x => `<div><div class="row between small"><span class="row" style="gap:8px"><span class="sw" style="background:${safeColor(x.e.cor)}"></span><b>${esc(x.e.nome)}</b></span><span>${x.n} corrida${x.n === 1 ? '' : 's'} · <b>${BRL(x.v)}</b></span></div><div class="bar mt" style="margin-top:6px"><i style="width:${x.v / maxEmp * 100}%;background:${safeColor(x.e.cor)}"></i></div></div>`).join('')}</div>` : `<p class="small muted mt">Cadastre empresas na aba Empresas.</p>`}</div>
+    <div class="card mt"><h3>Melhores pilotos do mês</h3>${porPil.length ? `<div class="list mt">${porPil.map((x, i) => `<div class="row" style="gap:10px"><b class="muted" style="width:18px">${i + 1}º</b><img class="avatar" style="width:36px;height:36px" src="${safeImg(x.p.foto, x.p.nome)}" alt=""><div style="flex:1;min-width:0"><b class="small">${esc(x.p.nome)}</b><div class="small muted">${x.n} corrida${x.n === 1 ? '' : 's'}${x.m ? ' · ' + x.m.toFixed(1).replace('.', ',') + ' ⭐' : ''}</div></div><b class="small">${BRL(x.v)}</b></div>`).join('')}</div>` : `<p class="small muted mt">Ainda não há corridas concluídas neste mês.</p>`}</div>`;
 }
 
 /* ---------- modais ---------- */
@@ -1046,6 +1115,7 @@ function pilotoForm(id, empId){
       <label class="f">Empresa *<select class="input" name="empresaId" required>${S.empresas.map(e => `<option value="${esc(e.id)}" ${e.id === v.empresaId ? 'selected' : ''}>${esc(e.nome)}</option>`).join('')}</select></label>
       <label class="f">Nome completo *<input class="input" name="nome" required maxlength="60" value="${esc(v.nome)}" placeholder="Ex.: Carlos da Silva"></label>
       <div class="grid2"><label class="f">Telefone *<input class="input" name="telefone" required maxlength="30" inputmode="tel" value="${esc(v.telefone)}"></label><label class="f">Nº da CNH<input class="input" name="cnh" maxlength="20" value="${esc(v.cnh)}"></label></div>
+      <label class="f">E-mail de login do piloto *<input class="input" name="email" type="email" required maxlength="80" value="${esc(v.email || '')}" placeholder="piloto@gmail.com"><span style="font-weight:500">O piloto entra no app com este e-mail (pelo Google ou criando senha) e cai direto no painel do piloto.</span></label>
       <div class="hr" style="margin:4px 0"></div><b class="small" style="color:var(--brand)">🏍️ DADOS DA MOTO</b>
       <div class="grid2"><label class="f">Marca *<select class="input" name="marca">${MARCAS.map(x => `<option ${x === m.marca ? 'selected' : ''}>${x}</option>`).join('')}</select></label><label class="f">Modelo *<input class="input" name="modelo" required maxlength="40" value="${esc(m.modelo)}" placeholder="Ex.: CG 160 Titan"></label></div>
       <div class="grid2"><label class="f">Placa *<input class="input" name="placa" required maxlength="8" value="${esc(m.placa)}" placeholder="ABC1D23" style="text-transform:uppercase;letter-spacing:.1em;font-weight:700"></label><label class="f">Ano<input class="input" name="ano" inputmode="numeric" maxlength="4" value="${esc(m.ano)}" placeholder="2023"></label></div>
@@ -1060,7 +1130,12 @@ function pilotoForm(id, empId){
         ev.preventDefault(); const f = new FormData(ev.target);
         const placa = f.get('placa').trim().toUpperCase().replace(/\s/g, '');
         if (!/^[A-Z]{3}-?\d[A-Z0-9]\d{2}$/.test(placa)){ toast('Placa inválida. Use ABC1234 ou ABC1D23'); return; }
-        const d = {empresaId:f.get('empresaId'), nome:f.get('nome').trim(), telefone:f.get('telefone').trim(), cnh:f.get('cnh').trim(), foto,
+        const email = String(f.get('email') || '').trim().toLowerCase();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ toast('Informe um e-mail válido para o login do piloto'); return; }
+        if (S.pilotos.some(x => x.id !== (p && p.id) && (x.email || '').toLowerCase() === email)){ toast('Já existe um piloto com esse e-mail'); return; }
+        if ((CONFIG.MASTERS || []).map(x => x.toLowerCase()).includes(email)){ toast('Esse e-mail é do master. Use outro e-mail para o piloto.'); return; }
+        const d = {empresaId:f.get('empresaId'), nome:f.get('nome').trim(), telefone:f.get('telefone').trim(), cnh:f.get('cnh').trim(), foto, email,
+          uid:p && p.email === email ? (p.uid || null) : null, pos:p ? p.pos || null : null,
           moto:{marca:f.get('marca'), modelo:f.get('modelo').trim(), ano:f.get('ano').trim(), cor:f.get('cor') || 'Preta', placa},
           online:p ? !!p.online : false, criadoEm:p ? p.criadoEm || Date.now() : Date.now()};
         if (!d.nome || !d.telefone || !d.moto.modelo || !d.empresaId){ toast('Preencha os campos obrigatórios'); return; }
@@ -1122,7 +1197,9 @@ const ACT = {
   authTab:d => { S.authTab = d.v; S.authErr = ''; renderPass(); },
   loginGoogle:() => loginGoogle(),
   resetSenha:() => resetSenha(),
-  sair:async () => { closeModal(); try{ await Store.authMod.signOut(Store.auth); }catch(e){} S.minha = null; S.minhaLocal = null; LS.set('mtu_minha', null); S.origem = S.destino = S.rota = null; toast('Você saiu da sua conta.'); },
+  jaConfirmei:async () => { try{ await S.user.reload(); await S.user.getIdToken(true); S.user = Store.auth.currentUser; }catch(e){} if (!S.user.emailVerified){ S.authErr = 'Ainda não recebemos a confirmação. Abra o link no seu e-mail e tente de novo.'; } else { S.authErr = ''; S.role = null; } renderAll(); },
+  reenviarVerif:async () => { try{ await Store.authMod.sendEmailVerification(S.user); toast('E-mail de confirmação enviado ✉️'); }catch(e){ S.authErr = authMsg(e); renderAll(); } },
+  sair:async () => { closeModal(); const me = S.role === 'piloto' && pil(S.meuPiloto); if (me && me.online){ try{ await Store.update('pilotos', me.id, {online:false}); }catch(e){} } try{ await Store.authMod.signOut(Store.auth); }catch(e){} S.minha = null; S.minhaLocal = null; LS.set('mtu_minha', null); S.origem = S.destino = S.rota = null; toast('Você saiu da sua conta.'); },
   nav:d => go(d.v),
   setup:() => showSetup(false),
   gps:() => usarGps(),
@@ -1163,6 +1240,7 @@ document.addEventListener('input', e => {
 document.addEventListener('change', e => {
   if (e.target.id === 'selPiloto'){ S.meuPiloto = e.target.value; LS.set('mtu_piloto', S.meuPiloto); renderPiloto(); renderPilotCount(); }
   if (e.target.id === 'filtroEmp'){ S.filtroEmp = e.target.value; renderAdmin(); }
+  if (e.target.id === 'buscaCli'){ S.buscaCli = e.target.value; renderAdmin(); }
 });
 
 document.addEventListener('submit', e => {
@@ -1174,29 +1252,88 @@ document.addEventListener('change', async e => {
 });
 
 /* ================= CONTA DO CLIENTE ================= */
+const MASTERS = (CONFIG.MASTERS || []).map(e => e.toLowerCase());
+const userEmail = () => ((S.user && S.user.email) || '').toLowerCase();
+const pilotoDoUsuario = () => { const e = userEmail(); return e ? S.pilotos.find(p => (p.email || '').toLowerCase() === e) : null; };
+function computeRole(){
+  if (!Store.auth) return 'local';
+  if (!S.authReady || !S.user) return null;
+  if (MASTERS.includes(userEmail()) && S.user.emailVerified) return 'master';
+  if (!S.loaded.pilotos) return 'pending';
+  const p = pilotoDoUsuario();
+  if (p) return S.user.emailVerified ? 'piloto' : 'piloto-verificar';
+  return 'cliente';
+}
+function allowedViews(){
+  return ({local:['passageiro','piloto','master'], master:['master','passageiro'], piloto:['piloto'], cliente:['passageiro']})[S.role] || ['passageiro'];
+}
+/* troca de perfil: ajusta assinaturas do banco e a tela inicial */
+function applyRole(){
+  const role = computeRole();
+  if (role === S.role) return false;
+  S.role = role;
+  if (S._unsubCorr){ S._unsubCorr(); S._unsubCorr = null; }
+  if (S._unsubClis){ S._unsubClis(); S._unsubClis = null; }
+  S.corridas = []; S.loaded.corridas = false; S.clientes = [];
+  if (role === 'piloto-verificar' && !S._verifSent){ S._verifSent = true; Store.authMod.sendEmailVerification(S.user).catch(() => {}); }
+  if (role === 'piloto'){
+    const p = pilotoDoUsuario(); S.meuPiloto = p.id;
+    linkPiloto(p).then(() => { if (S.role === 'piloto') S._unsubCorr = Store.subscribe('corridas', onCorridas, ['empresaId', p.empresaId]); });
+  } else if (role !== 'piloto' && Store.auth) S.meuPiloto = '';
+  if (role === 'cliente') S._unsubCorr = Store.subscribe('corridas', onCorridas, ['clienteId', S.user.uid]);
+  if (role === 'master' || role === 'local') S._unsubCorr = Store.subscribe('corridas', onCorridas);
+  if (role === 'master') S._unsubClis = Store.subscribe('clientes', list => { S.clientes = list; renderAll(); });
+  if (role === 'master' && S.user && !S.cliente) S.cliLoaded = true;
+  const av = allowedViews(); const want = location.hash.slice(1);
+  go(role === 'local' && av.includes(want) ? want : av[0]);
+  return true;
+}
+async function linkPiloto(p){
+  const u = S.user; if (!u) return;
+  try{
+    await Store.set('pilotoUsers', u.uid, {pilotoId:p.id, email:userEmail(), atualizadoEm:Date.now()});
+    if (p.uid !== u.uid) await Store.update('pilotos', p.id, {uid:u.uid});
+  }catch(e){ console.error('link piloto', e); }
+}
+let lastRideKey = '';
+function onCorridas(list){
+  S.corridas = list; S.loaded.corridas = true;
+  if (S.user && S.role === 'cliente' && !myRide()){ const ativa = S.corridas.filter(x => x.clienteId === S.user.uid && ATIVOS.includes(x.status)).sort((a, b) => b.criadaEm - a.criadaEm)[0]; if (ativa){ S.minha = ativa.id; LS.set('mtu_minha', ativa.id); } }
+  renderAll();
+  const r = myRide(); const key = r ? r.id + r.status : '';
+  if (key !== lastRideKey){ lastRideKey = key;
+    if (r && (r.status === 'aceita' || r.status === 'em_andamento') && pmap && pmap.ready){ S.sheetMin = false; renderPass();
+      setTimeout(() => pmap.fit(r.status === 'aceita' ? [...ridePath(r, 'rotaBusca'), r.inicio, r.origem, r.destino] : [...ridePath(r, 'rota'), r.origem, r.destino], passPad()), 50); }
+  }
+  if (S.view === 'piloto') fitPilot();
+}
 function authGate(){
   if (!Store.auth) return 'ok';
   if (!S.authReady) return 'loading';
   if (!S.user) return 'login';
-  if (!S.cliLoaded) return 'loading';
-  if (!S.cliente || !S.cliente.nome || !S.cliente.telefone) return 'perfil';
+  if (!S.role || S.role === 'pending') return 'loading';
+  if (S.role === 'piloto-verificar') return 'verificar';
+  if (S.role === 'cliente'){
+    if (!S.cliLoaded) return 'loading';
+    if (!S.cliente || !S.cliente.nome || !S.cliente.telefone) return 'perfil';
+  }
   return 'ok';
 }
 function initAuth(){
   if (!Store.auth){ S.authReady = true; return; }
   const A = Store.authMod;
   A.onAuthStateChanged(Store.auth, u => {
-    S.user = u; S.authReady = true;
+    S.user = u; S.authReady = true; S.authErr = '';
     if (S._unsubCli){ S._unsubCli(); S._unsubCli = null; }
     S.cliente = null; S.cliLoaded = false;
-    if (u){
+    if (u && !MASTERS.includes((u.email || '').toLowerCase())){
       const { doc, onSnapshot } = Store.fs;
       S._unsubCli = onSnapshot(doc(Store.db, 'clientes', u.uid), s => { S.cliente = s.exists() ? s.data() : null; S.cliLoaded = true; renderAll(); },
         e => { console.error(e); S.cliLoaded = true; renderAll(); });
     }
     renderAll();
   });
-  A.getRedirectResult(Store.auth).catch(err => { S.authErr = authMsg(err); renderPass(); });
+  A.getRedirectResult(Store.auth).catch(err => { S.authErr = authMsg(err); renderAll(); });
 }
 function authMsg(e){
   const c = (e && e.code) || '';
@@ -1217,6 +1354,16 @@ function authMsg(e){
 function authHtml(gate){
   if (gate === 'loading') return `<div style="display:grid;place-items:center;height:100%"><div class="spinner"></div></div>`;
   const err = S.authErr ? `<div class="authErr mt">${esc(S.authErr)}</div>` : '';
+  if (gate === 'verificar'){
+    const p = pilotoDoUsuario();
+    return `<div class="authcard"><div class="authlogo">📧</div><h2 style="text-align:center">Confirme seu e-mail</h2>
+      <p class="muted mt" style="text-align:center;font-size:14px">Olá${p ? ', ' + esc(p.nome.split(' ')[0]) : ''}! Você está cadastrado como <b style="color:var(--text)">piloto</b>. Por segurança, confirme o e-mail <b style="color:var(--text)">${esc(userEmail())}</b> tocando no link que enviamos para ele.</p>
+      ${err}
+      <button class="btn block mt2" data-act="jaConfirmei">Já confirmei meu e-mail</button>
+      <button class="btn ghost block mt" data-act="reenviarVerif">Reenviar e-mail de confirmação</button>
+      <p class="small muted mt" style="text-align:center">Dica: entrando com a conta Google desse e-mail, não precisa confirmar.</p>
+      <button type="button" class="linkbtn block mt" data-act="sair" style="width:100%">Sair</button></div>`;
+  }
   if (gate === 'perfil'){
     const u = S.user || {}; const foto = S.cliFotoTmp || (S.cliente && S.cliente.foto) || '';
     return `<div class="authcard"><div class="authlogo">🏍️</div><h2 style="text-align:center">Complete seu cadastro</h2>
@@ -1253,7 +1400,7 @@ async function loginGoogle(){
   catch(e){
     if (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment'){ try{ await A.signInWithRedirect(Store.auth, prov); return; }catch(e2){ e = e2; } }
     if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
-    console.error(e); S.authErr = authMsg(e); renderPass();
+    console.error(e); S.authErr = authMsg(e); renderAll();
   }
 }
 async function authSubmit(f){
@@ -1263,10 +1410,11 @@ async function authSubmit(f){
   try{
     if (S.authTab !== 'entrar'){
       const nome = String(d.get('nome') || '').trim(), telefone = String(d.get('telefone') || '').trim();
-      if (!nome || !telefone){ S.authErr = 'Preencha nome e telefone.'; renderPass(); return; }
+      if (!nome || !telefone){ S.authErr = 'Preencha nome e telefone.'; renderAll(); return; }
       const cred = await A.createUserWithEmailAndPassword(Store.auth, email, senha);
       try{ await A.updateProfile(cred.user, {displayName:nome}); }catch(e){}
-      await Store.set('clientes', cred.user.uid, {nome, telefone, email, foto:'', criadoEm:Date.now()});
+      const ehPiloto = S.pilotos.some(x => (x.email || '').toLowerCase() === email.toLowerCase()) || MASTERS.includes(email.toLowerCase());
+      if (!ehPiloto) await Store.set('clientes', cred.user.uid, {nome, telefone, email, foto:'', criadoEm:Date.now()});
       toast('Conta criada! Bem-vindo(a) ao MotoJá 🏍️');
     } else {
       await A.signInWithEmailAndPassword(Store.auth, email, senha);
@@ -1275,12 +1423,12 @@ async function authSubmit(f){
   finally{ btn.disabled = false; }
 }
 function _renderAuthKeep(f){
-  const vals = Object.fromEntries(new FormData(f)); renderPass();
+  const vals = Object.fromEntries(new FormData(f)); renderAll();
   const nf = document.getElementById('fAuth'); if (nf) for (const [k, v] of Object.entries(vals)) if (nf.elements[k] && k !== 'senha') nf.elements[k].value = v;
 }
 async function resetSenha(){
   const f = document.getElementById('fAuth'); const email = f && f.elements.email.value.trim();
-  if (!email){ S.authErr = 'Digite seu e-mail acima e toque de novo em “Esqueci minha senha”.'; renderPass(); return; }
+  if (!email){ S.authErr = 'Digite seu e-mail acima e toque de novo em “Esqueci minha senha”.'; renderAll(); return; }
   try{ await Store.authMod.sendPasswordResetEmail(Store.auth, email); toast('Enviamos um e-mail para você criar uma nova senha.'); }
   catch(e){ S.authErr = authMsg(e); _renderAuthKeep(f); }
 }
@@ -1292,12 +1440,23 @@ async function perfilSubmit(f){
   try{ await Store.set('clientes', u.uid, body); S.cliFotoTmp = null; closeModal(); toast('Cadastro salvo ✅'); }catch(e){}
 }
 function renderContaBtn(){
-  const b = $('#contaBtn'); const show = !!(S.user && S.cliente && S.view === 'passageiro');
+  const b = $('#contaBtn'); const show = !!(S.user && authGate() === 'ok');
   b.style.display = show ? '' : 'none';
-  if (show){ const src = safeImg(S.cliente.foto, S.cliente.nome); if (b._src !== src){ b.innerHTML = `<img src="${src}" alt="">`; b._src = src; } }
+  if (!show) return;
+  const me = S.role === 'piloto' ? pil(S.meuPiloto) : null;
+  const src = me ? safeImg(me.foto, me.nome) : S.role === 'master' ? avatarFor('M', '#a16207') : safeImg(S.cliente && S.cliente.foto, (S.cliente && S.cliente.nome) || userEmail());
+  if (b._src !== src){ b.innerHTML = `<img src="${src}" alt="">`; b._src = src; }
 }
 function contaModal(){
   if (!S.user) return;
+  if (S.role !== 'cliente'){
+    const me = S.role === 'piloto' ? pil(S.meuPiloto) : null; const e = me && emp(me.empresaId);
+    openModal(`<div class="row between"><h3>${S.role === 'master' ? '👑 Conta master' : 'Minha conta de piloto'}</h3><button class="xbtn" data-act="closeModal" aria-label="Fechar">✕</button></div>
+      <div class="driver mt"><img class="avatar lg" src="${me ? safeImg(me.foto, me.nome) : avatarFor('M', '#a16207')}" alt=""><div><b style="font-size:17px">${esc(me ? me.nome : (S.user.displayName || 'Administrador'))}</b><div class="small muted">${esc(userEmail())}</div>${e ? `<div class="small muted">${esc(e.nome)}</div>` : ''}</div></div>
+      ${me ? `<p class="note mt">Seus dados (foto, moto, placa) são atualizados pelo administrador. Peça a ele se precisar mudar algo.</p>` : `<p class="note mt">Você tem acesso total: empresas, pilotos, clientes e corridas. Também pode testar o app pela aba <b>Passageiro</b>.</p>`}
+      <button class="btn danger block mt2" data-act="sair">Sair da conta</button>`);
+    return;
+  }
   const c = S.cliente || {}; S.cliFotoTmp = null;
   const minhas = S.corridas.filter(r => r.clienteId === S.user.uid).sort((a, b) => b.criadaEm - a.criadaEm).slice(0, 30);
   const total = minhas.filter(r => r.status === 'concluida').reduce((s, r) => s + num(r.valor), 0);
@@ -1314,7 +1473,8 @@ function contaModal(){
 }
 
 function go(v){
-  if (!['passageiro','piloto','empresas'].includes(v)) v = 'passageiro';
+  if (v === 'empresas') v = 'master';
+  const av = allowedViews(); if (!av.includes(v)) v = av[0];
   S.view = v;
   document.querySelectorAll('.view').forEach(x => x.classList.toggle('active', x.id === 'view-' + v));
   document.querySelectorAll('nav.bottom button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
@@ -1323,10 +1483,16 @@ function go(v){
 }
 window.addEventListener('hashchange', () => { const v = location.hash.slice(1); if (v && v !== S.view) go(v); });
 function renderAll(){
+  if (applyRole()) return;
+  const gate = authGate();
+  $('#authView').style.display = gate === 'ok' ? 'none' : '';
+  $('#nav').style.display = gate === 'ok' && allowedViews().length > 1 ? '' : 'none';
+  document.querySelectorAll('nav.bottom button').forEach(b => b.style.display = allowedViews().includes(b.dataset.v) ? '' : 'none');
   renderContaBtn();
+  if (gate !== 'ok'){ patch($('#authView'), authHtml(gate)); pilotGps(); return; }
   if (S.view === 'passageiro') renderPass();
   if (S.view === 'piloto') renderPiloto(); else pilotGps();
-  if (S.view === 'empresas') renderAdmin();
+  if (S.view === 'master') renderAdmin();
   renderPilotCount();
 }
 
@@ -1359,7 +1525,6 @@ function tick(t){
 }
 
 /* ---------- início ---------- */
-let lastRideKey = '';
 (async function start(){
   if (MODE === 'google') loadGoogle(CFG.key);
   await Store.init();
@@ -1370,21 +1535,10 @@ let lastRideKey = '';
   catch(e){ console.error(e); $('#splash').innerHTML = `<div class="pad" style="text-align:center"><div style="font-size:40px">🗺️</div><h3>Não consegui carregar o Google Maps</h3><p class="muted small mt">Verifique sua conexão e a chave da API.</p><button class="btn mt" data-act="setup">Configurar chave</button></div>`; return; }
   pmap.onIdle(() => { const c = pmap.center(); c && LS.set('mtu_center', c); });
   setupAutocomplete();
-  ['empresas','pilotos','corridas'].forEach(c => Store.subscribe(c, list => {
-    S[c] = list; S.loaded[c] = true;
-    renderAll();
-    if (c === 'corridas'){
-      if (S.user && !myRide()){ const ativa = S.corridas.filter(x => x.clienteId === S.user.uid && ATIVOS.includes(x.status)).sort((a, b) => b.criadaEm - a.criadaEm)[0]; if (ativa){ S.minha = ativa.id; LS.set('mtu_minha', ativa.id); } }
-      const r = myRide(); const key = r ? r.id + r.status : '';
-      if (key !== lastRideKey){ lastRideKey = key;
-        if (r && (r.status === 'aceita' || r.status === 'em_andamento')){ S.sheetMin = false; renderPass();
-          setTimeout(() => pmap.fit(r.status === 'aceita' ? [...ridePath(r, 'rotaBusca'), r.inicio, r.origem, r.destino] : [...ridePath(r, 'rota'), r.origem, r.destino], passPad()), 50); }
-        if (S.view === 'piloto') fitPilot();
-      }
-    }
-  }));
+  ['empresas','pilotos'].forEach(c => Store.subscribe(c, list => { S[c] = list; S.loaded[c] = true; renderAll(); }));
   $('#splash').remove();
-  go(location.hash.slice(1) || 'passageiro');
+  renderAll();
+  go(location.hash.slice(1) || S.view);
   requestAnimationFrame(tick);
   try{ const st = navigator.permissions && await navigator.permissions.query({name:'geolocation'});
     if (st && st.state === 'granted'){ const p = await getGps(); if (p && !S.origem && !myRide()){ S.gpsPass = p; pmap.panTo(p); drawPass(); } } }catch(e){}
