@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111113">
+<title>MotoJá — Mototáxi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#111113;--panel:#19191c;--panel2:#212125;--line:#2b2b30;--text:#f4f4f5;--muted:#a1a1aa;--brand:#FFC400;--brand2:#ffdb5c;--ok:#22c55e;--danger:#ef4444;--blue:#60a5fa}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#09090a;color:var(--text);font-family:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+#app{max-width:560px;margin:0 auto;height:100vh;height:100dvh;display:flex;flex-direction:column;background:var(--bg);border-inline:1px solid var(--line);position:relative;overflow:hidden}
+header.top{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--bg);z-index:10}
+.brand{font-weight:800;font-size:20px;letter-spacing:-.03em;display:flex;align-items:center;gap:8px}
+.brand .logo{width:32px;height:32px;border-radius:10px;background:var(--brand);display:grid;place-items:center;font-size:18px}
+.brand b{color:var(--brand)}
+.badge{font-size:11px;padding:4px 9px;border-radius:99px;background:var(--panel2);color:var(--muted);border:1px solid var(--line);white-space:nowrap}
+.badge.ok{color:#86efac;border-color:#14532d}
+.badge.warn{color:#fcd34d;border-color:#713f12}
+main{flex:1;position:relative;overflow:hidden}
+.view{position:absolute;inset:0;display:none;overflow:auto;-webkit-overflow-scrolling:touch}
+.view.active{display:block}
+#view-passageiro{overflow:hidden}
+nav.bottom{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--line);background:var(--panel);z-index:10}
+nav.bottom button{background:none;border:0;padding:9px 4px 11px;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;position:relative}
+nav.bottom button .ic{font-size:20px;filter:grayscale(1);opacity:.7}
+nav.bottom button.on{color:var(--brand)}
+nav.bottom button.on .ic{filter:none;opacity:1}
+nav.bottom .cnt{position:absolute;top:5px;left:calc(50% + 8px);background:var(--danger);color:#fff;font-size:10px;font-weight:800;border-radius:99px;padding:1px 6px}
+
+/* map */
+.map{position:absolute;inset:0;touch-action:none;background:#1b1e23;overflow:hidden}
+.map svg{width:100%;height:100%;display:block;cursor:crosshair;user-select:none;-webkit-user-select:none}
+.zoom{position:absolute;right:12px;top:50%;transform:translateY(-80%);display:flex;flex-direction:column;gap:6px;z-index:4}
+.zoom button{width:40px;height:40px;border-radius:12px;background:var(--panel);border:1px solid var(--line);font-size:18px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px #0007}
+
+/* search card */
+.searchCard{position:absolute;top:10px;left:10px;right:10px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:6px;z-index:6;box-shadow:0 10px 30px #000a}
+.field{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:12px;cursor:pointer;border:1px solid transparent}
+.field.active{background:#ffffff08;border-color:#ffc40066}
+.field .lbl{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.field .val{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.field .val.ph{color:#71717a;font-weight:500}
+.field input{background:none;border:0;outline:0;width:100%;font-size:14px;font-weight:600;padding:0}
+.field input::placeholder{color:#71717a;font-weight:500}
+.field .grow{flex:1;min-width:0}
+.dot{width:12px;height:12px;border-radius:50%;flex:none}
+.dot.o{background:var(--ok);box-shadow:0 0 0 4px #22c55e33}
+.dot.d{background:var(--brand);border-radius:3px;box-shadow:0 0 0 4px #ffc40033}
+.xbtn{background:var(--panel2);border:0;border-radius:99px;width:24px;height:24px;font-size:13px;cursor:pointer;color:var(--muted);flex:none}
+.sep{height:1px;background:var(--line);margin:0 10px 0 32px}
+.sugs{max-height:220px;overflow:auto;border-top:1px solid var(--line);margin-top:4px;padding-top:4px}
+.sug{display:flex;gap:10px;align-items:center;padding:9px 10px;border-radius:10px;cursor:pointer;font-size:14px}
+.sug:hover,.sug.hl{background:#ffffff0d}
+.sug small{color:var(--muted);display:block;font-size:11px}
+
+/* sheet */
+.sheet{position:absolute;left:0;right:0;bottom:0;max-height:60%;overflow:auto;background:var(--panel);border-radius:22px 22px 0 0;border-top:1px solid var(--line);padding:8px 16px 16px;z-index:5;box-shadow:0 -10px 30px #0009;transition:max-height .25s}
+.sheet.min{max-height:96px;overflow:hidden}
+.grab{width:44px;height:5px;background:#3f3f46;border-radius:5px;margin:2px auto 12px;cursor:pointer}
+.grabzone{padding:4px 0;cursor:pointer}
+h2{font-size:18px;font-weight:800;letter-spacing:-.02em}
+h3{font-size:16px;font-weight:800;letter-spacing:-.01em}
+.muted{color:var(--muted)}
+.small{font-size:12px}
+.row{display:flex;gap:10px;align-items:center}
+.row.between{justify-content:space-between}
+.row.end{justify-content:flex-end}
+.wrap{flex-wrap:wrap}
+.col{display:flex;flex-direction:column;gap:10px}
+.mt{margin-top:12px}.mt2{margin-top:20px}.mb{margin-bottom:12px}
+.btn{background:var(--brand);color:#111;border:0;border-radius:14px;padding:13px 18px;font-weight:800;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:transform .08s,filter .15s}
+.btn:active{transform:scale(.98)}
+.btn:hover{filter:brightness(1.06)}
+.btn.block{width:100%}
+.btn.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--line)}
+.btn.danger{background:#3a1416;color:#fca5a5;border:1px solid #5b1d20}
+.btn.ok{background:var(--ok);color:#052e12}
+.btn.sm{padding:8px 12px;font-size:13px;border-radius:11px}
+.btn[disabled]{opacity:.45;pointer-events:none}
+.chip{border:1px solid var(--line);background:var(--panel2);border-radius:99px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer}
+.chip.on{background:#ffc4001a;border-color:var(--brand);color:var(--brand)}
+.opt{display:flex;align-items:center;gap:12px;padding:12px;border-radius:14px;border:1px solid var(--line);background:var(--panel2);cursor:pointer}
+.opt.on{border-color:var(--brand);background:#ffc4000f}
+.opt.off{opacity:.55}
+.opt .price{font-weight:800;font-size:16px;margin-left:auto;text-align:right}
+.elogo{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-weight:800;color:#111;flex:none;font-size:14px}
+.input{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:11px 12px;font-size:14px;outline:0}
+.input:focus{border-color:var(--brand)}
+label.f{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:700;color:var(--muted)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px}
+.stat b{font-size:20px;display:block}
+.stat span{font-size:11px;color:var(--muted)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:14px}
+.pad{padding:14px}
+.list{display:flex;flex-direction:column;gap:10px}
+.avatar{width:52px;height:52px;border-radius:50%;object-fit:cover;flex:none;background:#333;border:2px solid var(--line)}
+.avatar.lg{width:72px;height:72px;border-color:var(--brand)}
+.tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 8px;border-radius:99px;background:var(--panel2);border:1px solid var(--line);color:var(--muted)}
+.tag.on{color:#86efac;border-color:#14532d;background:#052e1255}
+.tag.y{color:var(--brand);border-color:#713f12;background:#422d0644}
+.tag.r{color:#fca5a5;border-color:#5b1d20}
+.tag.b{color:#93c5fd;border-color:#1e3a8a}
+.sw{width:14px;height:14px;border-radius:50%;border:1px solid #ffffff44;display:inline-block;flex:none}
+.plate{display:inline-block;background:#f5f5f5;color:#111;font-weight:800;letter-spacing:.12em;padding:4px 10px;border-radius:6px;border-top:5px solid #1d4ed8;font-size:15px;font-family:ui-monospace,Menlo,monospace}
+.tabs{display:flex;gap:6px;padding:12px 14px 0;position:sticky;top:0;background:var(--bg);z-index:3;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.tabs .chip{flex:1;text-align:center}
+.empty{text-align:center;padding:28px 16px;color:var(--muted);border:1px dashed var(--line);border-radius:18px}
+.empty .big{font-size:36px;margin-bottom:8px}
+.spinner{width:54px;height:54px;border-radius:50%;border:4px solid #ffc40033;border-top-color:var(--brand);animation:spin 1s linear infinite;margin:6px auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.pulse{animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.5}}
+.driver{display:flex;gap:14px;align-items:center}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:13px}
+.kv dt{color:var(--muted)}
+.kv dd{font-weight:600}
+.trip{display:flex;flex-direction:column;gap:8px;font-size:13px}
+.trip div{display:flex;gap:10px;align-items:center}
+.stars button{background:none;border:0;font-size:30px;cursor:pointer;filter:grayscale(1);opacity:.4}
+.stars button.on{filter:none;opacity:1}
+.switch{width:52px;height:30px;border-radius:99px;background:#3f3f46;position:relative;border:0;cursor:pointer;flex:none;transition:background .2s}
+.switch::after{content:'';position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:left .2s}
+.switch.on{background:var(--ok)}
+.switch.on::after{left:25px}
+.pmapwrap{position:relative;height:260px;border-radius:18px;overflow:hidden;border:1px solid var(--line);margin:0 14px}
+.pmapwrap .map{border-radius:18px}
+.eta{font-size:22px;font-weight:800;letter-spacing:-.02em}
+.photoUp{display:flex;align-items:center;gap:14px;padding:12px;border:1px dashed #3f3f46;border-radius:16px;cursor:pointer}
+.photoUp img{width:76px;height:76px;border-radius:50%;object-fit:cover;background:var(--panel2);border:2px solid var(--brand)}
+.colors{display:flex;flex-wrap:wrap;gap:8px}
+.colors label{display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--line);border-radius:99px;cursor:pointer;font-size:12px;font-weight:600;color:var(--text)}
+.colors input{display:none}
+.colors input:checked + span + em,.colors label:has(input:checked){border-color:var(--brand);background:#ffc40014}
+.colors em{font-style:normal}
+.modal{position:fixed;inset:0;background:#000b;display:flex;align-items:flex-end;justify-content:center;z-index:50;backdrop-filter:blur(3px)}
+.modal.hidden{display:none}
+.modal-card{width:100%;max-width:560px;max-height:92vh;max-height:92dvh;overflow:auto;background:var(--panel);border-radius:22px 22px 0 0;border:1px solid var(--line);padding:18px 16px 22px}
+@media(min-width:600px){.modal{align-items:center}.modal-card{border-radius:22px}}
+#toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%) translateY(20px);background:#fafafa;color:#111;padding:11px 16px;border-radius:12px;font-weight:700;font-size:14px;opacity:0;pointer-events:none;transition:.25s;z-index:60;max-width:90%;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.splash{position:absolute;inset:0;display:grid;place-items:center;background:var(--bg);z-index:40}
+.note{font-size:12px;color:var(--muted);background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+select.input{appearance:none;background-image:linear-gradient(45deg,transparent 50%,#a1a1aa 50%),linear-gradient(135deg,#a1a1aa 50%,transparent 50%);background-position:calc(100% - 18px) 50%,calc(100% - 13px) 50%;background-size:5px 5px;background-repeat:no-repeat;padding-right:32px}
+.hr{height:1px;background:var(--line);margin:14px 0}
+
+.lmk{background:none;border:0}
+.map{z-index:0}
+.map .leaflet-top.leaflet-right{top:38%}
+.leaflet-bar a{background:#19191c;color:#f4f4f5;border-color:#2b2b30}
+.leaflet-container{background:#1b1e23;font-family:inherit}
+.leaflet-control-attribution{font-size:10px}
+.mk-o{width:26px;height:26px;transform:translateY(50%);display:grid;place-items:center}
+.mk-o span{width:18px;height:18px;border-radius:50%;background:#22c55e;border:3px solid #fff;box-shadow:0 0 0 6px #22c55e44,0 2px 8px #000a}
+.mk-d svg{display:block;filter:drop-shadow(0 3px 4px #000a)}
+.mk-m{width:40px;height:40px;border-radius:50%;background:#111;border:4px solid var(--c);display:grid;place-items:center;font-size:19px;transform:translateY(50%);box-shadow:0 0 0 7px color-mix(in srgb,var(--c) 25%,transparent),0 4px 10px #000a}
+.mk-m.sm{width:30px;height:30px;border-width:3px;font-size:14px;opacity:.9;box-shadow:0 2px 6px #000a}
+.mk-me{width:16px;height:16px;border-radius:50%;background:#3b82f6;border:3px solid #fff;transform:translateY(50%);box-shadow:0 0 0 8px #3b82f633}
+#destAC gmp-place-autocomplete{width:100%;color-scheme:dark;--gmp-mat-color-surface:#212125;--gmp-mat-color-on-surface:#f4f4f5}
+#destAC{min-height:24px}
+.gpsbtn{background:#ffc40022;color:var(--brand);border:1px solid #ffc40055;border-radius:99px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;flex:none}
+.iconbtn{background:var(--panel2);border:1px solid var(--line);border-radius:10px;width:34px;height:34px;cursor:pointer;font-size:16px}
+textarea.input{font-family:ui-monospace,Menlo,monospace;font-size:12px;resize:vertical}
+a.btn{text-decoration:none}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <div class="brand"><span class="logo">🏍️</span><span>Moto<b>Já</b></span></div>
+    <div class="row" style="gap:8px"><span id="syncBadge" class="badge">carregando…</span><button class="iconbtn" data-act="setup" aria-label="Configurações">⚙️</button></div>
+  </header>
+  <main>
+    <section id="view-passageiro" class="view active">
+      <div class="map" id="passMap"></div>
+      <div class="searchCard" id="searchCard">
+        <div class="field" id="fOrig" data-act="field" data-f="origem">
+          <span class="dot o"></span>
+          <div class="grow"><div class="lbl">Sua localização</div><div class="val ph" id="origTxt">Toque no mapa ou use o GPS</div></div>
+          <button class="gpsbtn" id="gpsBtn" data-act="gps">📡 GPS</button>
+          <button class="xbtn" id="xOrig" data-act="clear" data-f="origem" style="display:none" aria-label="Limpar origem">✕</button>
+        </div>
+        <div class="sep"></div>
+        <div class="field" id="fDest" data-act="field" data-f="destino">
+          <span class="dot d"></span>
+          <div class="grow"><div class="lbl">Para onde?</div><div id="destAC"><div class="val ph">Carregando busca…</div></div><div class="val" id="destTxt" style="display:none"></div></div>
+          <button class="xbtn" id="xDest" data-act="clear" data-f="destino" style="display:none" aria-label="Limpar destino">✕</button>
+        </div>
+        <div class="sugs" id="sugs" style="display:none"></div>
+      </div>
+      <div class="sheet" id="sheet"><div class="grabzone" data-act="sheetToggle"><div class="grab"></div></div><div id="sheetBody"></div></div>
+    </section>
+    <section id="view-piloto" class="view">
+      <div id="pilotTop" style="padding:14px 14px 0"></div>
+      <div class="pmapwrap" id="pilotMapWrap" style="display:none;margin-top:12px"><div class="map" id="pilotMap"></div></div>
+      <div id="pilotBottom" style="padding:12px 14px 24px"></div>
+    </section>
+    <section id="view-empresas" class="view">
+      <div class="tabs" id="admTabs"></div>
+      <div id="admBody" style="padding:14px 14px 28px"></div>
+    </section>
+    <div class="splash" id="splash"><div style="text-align:center"><div class="spinner"></div><div class="muted small">Carregando MotoJá…</div></div></div>
+  </main>
+  <nav class="bottom" id="nav">
+    <button data-act="nav" data-v="passageiro" class="on"><span class="ic">🧍</span>Passageiro</button>
+    <button data-act="nav" data-v="piloto"><span class="ic">🏍️</span>Piloto<span class="cnt" id="pilotCnt" style="display:none"></span></button>
+    <button data-act="nav" data-v="empresas"><span class="ic">🏢</span>Empresas</button>
+  </nav>
+</div>
+<div id="modal" class="modal hidden"><div class="modal-card" id="modalCard"></div></div>
+<div id="toast"></div>
+<script type="module">
+/* =====================================================================
+   CONFIGURAÇÃO — preencha aqui (ou pela tela "Configurar" do próprio app)
+   ===================================================================== */
+const CONFIG = {
+  // Chave da Google Maps Platform (APIs: Maps JavaScript, Places (New), Routes, Geocoding)
+  GOOGLE_MAPS_API_KEY: '',
+  // Map ID (Google Cloud > Map Management). 'DEMO_MAP_ID' funciona para testes.
+  GOOGLE_MAP_ID: 'DEMO_MAP_ID',
+  // Centro inicial do mapa (se o GPS não for liberado). Padrão: São Paulo
+  CENTRO_INICIAL: { lat: -23.5505, lng: -46.6333 },
+  // Configuração do Firebase (Firestore) para compartilhar dados entre celulares.
+  // Deixe null para salvar só no aparelho (bom para testar).
+  FIREBASE: {
+    apiKey: "AIzaSyBWpmiPdZzGkbIBPiKp2RfRMXsKgAK6jXg",
+    authDomain: "motoja-mototaxi.firebaseapp.com",
+    projectId: "motoja-mototaxi",
+    storageBucket: "motoja-mototaxi.firebasestorage.app",
+    messagingSenderId: "11800988424",
+    appId: "1:11800988424:web:45c7e3aec8fd4c5196fabd"
+  }
+  // Exemplo:
+  // FIREBASE: { apiKey: "...", authDomain: "seu-projeto.firebaseapp.com", projectId: "seu-projeto", appId: "..." }
+};
+
+/* ================= utils ================= */
+const $ = s => document.querySelector(s);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const BRL = v => (Number(v) || 0).toLocaleString('pt-BR', {style:'currency', currency:'BRL'});
+const num = (v, d=0) => { const n = parseFloat(String(v).replace(',', '.')); return isFinite(n) ? n : d; };
+const LS = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+};
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 2800); }
+function ago(ts){ const s = Math.max(0, (Date.now() - ts) / 1000); if (s < 60) return 'agora'; if (s < 3600) return Math.floor(s/60) + ' min atrás'; if (s < 86400) return Math.floor(s/3600) + ' h atrás'; return new Date(ts).toLocaleDateString('pt-BR'); }
+function hash(str){ let h = 2166136261; for (const c of String(str)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+function initials(n){ return String(n||'?').trim().split(/\s+/).slice(0,2).map(w => w[0]).join('').toUpperCase() || '?'; }
+function avatarFor(name, bg){
+  bg = bg || ['#f59e0b','#3b82f6','#10b981','#ef4444','#8b5cf6','#ec4899'][hash(name)%6];
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="${bg}"/><text x="50" y="62" text-anchor="middle" font-family="Arial,sans-serif" font-weight="700" font-size="38" fill="#fff">${esc(initials(name))}</text></svg>`;
+  return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+}
+const safeImg = (s, name) => (typeof s === 'string' && /^data:image\/(png|jpe?g|webp|svg\+xml);base64,[A-Za-z0-9+/=]+$/.test(s)) ? s : avatarFor(name);
+const safeColor = c => /^#[0-9a-fA-F]{3,8}$/.test(c || '') ? c : '#FFC400';
+const clean = o => JSON.parse(JSON.stringify(o));
+function patch(el, html){
+  if (el._html === html) return;
+  const a = document.activeElement; let id = null, ss = null, se = null;
+  if (a && el.contains(a) && a.id){ id = a.id; try{ ss = a.selectionStart; se = a.selectionEnd; }catch(e){} }
+  el.innerHTML = html; el._html = html;
+  if (id){ const n = document.getElementById(id); if (n){ n.focus(); try{ if (ss != null) n.setSelectionRange(ss, se); }catch(e){} } }
+}
+
+/* ================= dados fixos ================= */
+const MOTO_CORES = [['Preta','#111111'],['Branca','#f5f5f5'],['Prata','#b8bec7'],['Cinza','#6b7280'],['Vermelha','#dc2626'],['Azul','#2563eb'],['Amarela','#facc15'],['Verde','#16a34a'],['Laranja','#f97316'],['Vinho','#7f1d1d'],['Marrom','#78350f']];
+const corHex = n => (MOTO_CORES.find(c => c[0] === n) || [0,'#9ca3af'])[1];
+const MARCAS = ['Honda','Yamaha','Suzuki','Shineray','Haojue','Dafra','Kawasaki','Bajaj','Royal Enfield','BMW','Outra'];
+const EMP_CORES = ['#FFC400','#22c55e','#3b82f6','#f97316','#ec4899','#a855f7','#14b8a6','#ef4444'];
+const PAGAMENTOS = ['Dinheiro','Pix','Cartão'];
+const STATUS = { procurando:['Procurando piloto','y'], aceita:['Piloto a caminho','b'], em_andamento:['Em viagem','b'], concluida:['Concluída','on'], cancelada:['Cancelada','r'] };
+const SPEED = 8.3;        // m/s ≈ 30 km/h (trajeto simulado quando não há GPS do piloto)
+const DEMO_SPEED = 160;   // m/s — modo demonstração acelerado
+const GPS_FRESH = 45000;  // posição real do piloto é usada se tiver menos de 45 s
+
+/* ================= geo ================= */
+function hav(a, b){ const t = x => x * Math.PI / 180; const dLat = t(b.lat - a.lat), dLng = t(b.lng - a.lng);
+  const s = Math.sin(dLat/2) ** 2 + Math.cos(t(a.lat)) * Math.cos(t(b.lat)) * Math.sin(dLng/2) ** 2; return 2 * 6371000 * Math.asin(Math.sqrt(s)); }
+const encPath = p => p.map(x => (+x.lat).toFixed(5) + ',' + (+x.lng).toFixed(5)).join('|');
+const decPath = s => !s ? [] : String(s).split('|').map(t => { const [a, b] = t.split(',').map(Number); return {lat:a, lng:b}; }).filter(p => isFinite(p.lat) && isFinite(p.lng));
+const pathLen = p => p.reduce((s, x, i) => i ? s + hav(p[i-1], x) : 0, 0);
+function pointAt(p, d){
+  if (!p.length) return null;
+  for (let i = 1; i < p.length; i++){ const l = hav(p[i-1], p[i]); if (d <= l){ const t = l ? d / l : 0; return {lat:p[i-1].lat + (p[i].lat - p[i-1].lat) * t, lng:p[i-1].lng + (p[i].lng - p[i-1].lng) * t}; } d -= l; }
+  return p[p.length - 1];
+}
+function offsetPoint(p, m, ang){ return {lat:p.lat + m * Math.cos(ang) / 111320, lng:p.lng + m * Math.sin(ang) / (111320 * Math.cos(p.lat * Math.PI / 180))}; }
+function thin(p, max = 180){ if (p.length <= max) return p; const step = (p.length - 1) / (max - 1); const o = []; for (let i = 0; i < max; i++) o.push(p[Math.round(i * step)]); return o; }
+const ll = p => ({lat:+p.lat, lng:+p.lng});
+
+/* ================= Google Maps ================= */
+const CFG = {
+  key: CONFIG.GOOGLE_MAPS_API_KEY || LS.get('mtc_key', ''),
+  mapId: (CONFIG.GOOGLE_MAPS_API_KEY ? CONFIG.GOOGLE_MAP_ID : LS.get('mtc_mapid', '')) || CONFIG.GOOGLE_MAP_ID || 'DEMO_MAP_ID',
+  firebase: CONFIG.FIREBASE || LS.get('mtc_fb', null),
+  center: CONFIG.CENTRO_INICIAL,
+};
+function loadGoogle(key){
+  if (window.google && window.google.maps && window.google.maps.importLibrary) return;
+  /* bootstrap oficial de carregamento dinâmico da Maps JavaScript API */
+  (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]+"");for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src=`https://maps.${c}apis.com/maps/api/js?`+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({key, v:'weekly', language:'pt-BR', region:'BR'});
+}
+window.gm_authFailure = () => { toast('Chave do Google Maps recusada. Verifique a chave e as APIs ativadas.'); $('#gmErr') && ($('#gmErr').style.display = ''); };
+
+/* ---------- modo do mapa: Google (com chave) ou OpenStreetMap (grátis, sem chave) ---------- */
+const MODE = CFG.key ? 'google' : 'osm';
+let lastNomi = 0;
+async function nominatim(url){
+  const wait = lastNomi + 1100 - Date.now(); if (wait > 0) await sleep(wait);   // política: no máx. 1 pedido/s
+  lastNomi = Date.now();
+  const r = await fetch(url, {headers:{'Accept-Language':'pt-BR'}}); if (!r.ok) throw new Error('nominatim ' + r.status); return r.json();
+}
+async function osrmRoute(a, b){
+  const u = `https://router.project-osrm.org/route/v1/driving/${a.lng},${a.lat};${b.lng},${b.lat}?overview=full&geometries=geojson`;
+  const r = await fetch(u); if (!r.ok) throw new Error('osrm ' + r.status);
+  const j = await r.json(); const rt = j.routes && j.routes[0]; if (!rt) throw new Error('sem rota');
+  const path = rt.geometry.coordinates.map(c => ({lat:c[1], lng:c[0]}));
+  return {path:thin(path), distM:rt.distance, durS:rt.duration * 0.85};
+}
+function loadLeaflet(){
+  if (window.L) return Promise.resolve();
+  return new Promise((res, rej) => {
+    const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css'; document.head.appendChild(css);
+    const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js'; s.onload = res; s.onerror = rej; document.head.appendChild(s);
+  });
+}
+
+async function calcRoute(a, b){
+  a = ll(a); b = ll(b);
+  if (MODE === 'osm'){ try{ return await osrmRoute(a, b); }catch(e){ console.warn('OSRM', e); } const d = hav(a, b) * 1.3; return {path:[a, b], distM:d, durS:d / SPEED, aprox:true}; }
+  try{
+    const { Route } = await google.maps.importLibrary('routes');
+    for (const travelMode of ['TWO_WHEELER', 'DRIVING']){
+      try{
+        const { routes } = await Route.computeRoutes({ origin:a, destination:b, travelMode, fields:['path', 'distanceMeters', 'durationMillis'] });
+        const r = routes && routes[0];
+        if (r && r.path && r.path.length){
+          const path = r.path.map(p => ({lat:typeof p.lat === 'function' ? p.lat() : p.lat, lng:typeof p.lng === 'function' ? p.lng() : p.lng}));
+          const distM = r.distanceMeters || pathLen(path);
+          return {path:thin(path), distM, durS:r.durationMillis ? r.durationMillis / 1000 : distM / SPEED};
+        }
+      }catch(e){ console.warn('Routes', travelMode, e); }
+    }
+  }catch(e){ console.warn('Routes library', e); }
+  const d = hav(a, b) * 1.3;
+  return {path:[a, b], distM:d, durS:d / SPEED, aprox:true};
+}
+let geocoder = null;
+async function addressOf(p){
+  if (MODE === 'osm'){
+    try{
+      const j = await nominatim(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&addressdetails=1&lat=${p.lat}&lon=${p.lng}`);
+      const a = j.address || {};
+      const rua = [a.road || a.pedestrian || a.footway || a.neighbourhood, a.house_number].filter(Boolean).join(', ');
+      const txt = [j.name && j.name !== a.road ? j.name : '', rua, a.suburb || a.city_district, a.city || a.town || a.village].filter(Boolean).join(' - ');
+      if (txt) return txt;
+    }catch(e){ console.warn('Nominatim', e); }
+    return `Ponto marcado (${(+p.lat).toFixed(5)}, ${(+p.lng).toFixed(5)})`;
+  }
+  try{
+    if (!geocoder){ const { Geocoder } = await google.maps.importLibrary('geocoding'); geocoder = new Geocoder(); }
+    const { results } = await geocoder.geocode({ location:ll(p) });
+    if (results && results[0]){ const parts = results[0].formatted_address.split(',').map(s => s.trim()); return parts.slice(0, parts.length > 3 ? 3 : 2).join(', ').replace(/ - \d{5}-\d{3}$/, ''); }
+  }catch(e){ console.warn('Geocoder', e); }
+  return `Ponto marcado (${(+p.lat).toFixed(5)}, ${(+p.lng).toFixed(5)})`;
+}
+function getGps(timeout = 8000){
+  return new Promise(res => {
+    if (!navigator.geolocation) return res(null);
+    navigator.geolocation.getCurrentPosition(p => res({lat:p.coords.latitude, lng:p.coords.longitude, acc:p.coords.accuracy}), () => res(null), {enableHighAccuracy:true, timeout, maximumAge:15000});
+  });
+}
+
+const MK = {
+  origem: () => `<div class="mk-o"><span></span></div>`,
+  destino: () => `<div class="mk-d"><svg width="34" height="44" viewBox="-17 -44 34 44"><path d="M0 0 C -4 -10 -15 -15 -15 -28 A15 15 0 1 1 15 -28 C15 -15 4 -10 0 0Z" fill="#FFC400" stroke="#111" stroke-width="2"/><circle cy="-28" r="5.5" fill="#111"/></svg></div>`,
+  moto: (cor) => `<div class="mk-m" style="--c:${cor}"><span>🏍️</span></div>`,
+  livre: (cor) => `<div class="mk-m sm" style="--c:${cor}"><span>🏍️</span></div>`,
+  eu: () => `<div class="mk-me"></div>`,
+};
+class GMap{
+  constructor(el, opts = {}){ this.el = el; this.opts = opts; this.markers = {}; this.lines = {}; this.ready = false; }
+  async init(center){
+    const { Map } = await google.maps.importLibrary('maps');
+    await google.maps.importLibrary('marker');
+    const o = {center:ll(center), zoom:15, mapId:CFG.mapId, disableDefaultUI:true, zoomControl:true, gestureHandling:'greedy', clickableIcons:false};
+    if (google.maps.ColorScheme) o.colorScheme = google.maps.ColorScheme.DARK;
+    this.map = new Map(this.el, o);
+    if (this.opts.onTap) this.map.addListener('click', e => e.latLng && this.opts.onTap({lat:e.latLng.lat(), lng:e.latLng.lng()}));
+    this.ready = true; return this;
+  }
+  marker(key, pos, html, z = 1){
+    let m = this.markers[key];
+    if (!pos){ if (m){ m.map = null; delete this.markers[key]; } return; }
+    if (!m){ const div = document.createElement('div'); m = new google.maps.marker.AdvancedMarkerElement({map:this.map, position:ll(pos), content:div, zIndex:z}); this.markers[key] = m; }
+    if (m._html !== html){ m.content.innerHTML = html; m._html = html; }
+    const lp = ll(pos); if (!m._pos || m._pos.lat !== lp.lat || m._pos.lng !== lp.lng){ m.position = lp; m._pos = lp; }
+  }
+  line(key, path, color = '#FFC400', dashed = false){
+    let l = this.lines[key];
+    if (!path || path.length < 2){ if (l){ l.forEach(x => x.setMap(null)); delete this.lines[key]; } return; }
+    const sig = encPath(path) + color + dashed;
+    if (l && l._sig === sig) return;
+    if (l) l.forEach(x => x.setMap(null));
+    const P = google.maps.Polyline;
+    const casing = new P({map:this.map, path, strokeColor:'#000', strokeOpacity:.55, strokeWeight:9, zIndex:1});
+    const main = dashed
+      ? new P({map:this.map, path, strokeOpacity:0, zIndex:2, icons:[{icon:{path:'M 0,-1 0,1', strokeOpacity:1, strokeColor:color, scale:3}, offset:'0', repeat:'12px'}]})
+      : new P({map:this.map, path, strokeColor:color, strokeOpacity:1, strokeWeight:5, zIndex:2});
+    l = [casing, main]; l._sig = sig; this.lines[key] = l;
+  }
+  keep(keys){
+    for (const k of Object.keys(this.markers)) if (!keys.includes(k)) this.marker(k, null);
+    for (const k of Object.keys(this.lines)) if (!keys.includes(k)) this.line(k, null);
+  }
+  fit(points, pad){
+    points = points.filter(Boolean).map(ll); if (!points.length || !this.map) return;
+    if (points.length === 1 || points.every(p => hav(p, points[0]) < 30)){ this.map.panTo(points[0]); this.map.setZoom(16); return; }
+    const b = new google.maps.LatLngBounds(); points.forEach(p => b.extend(p));
+    this.map.fitBounds(b, pad || 50);
+  }
+  panTo(p){ this.map.panTo(ll(p)); }
+  center(){ const c = this.map.getCenter(); return c ? {lat:c.lat(), lng:c.lng()} : null; }
+  onIdle(fn){ this.map.addListener('idle', fn); }
+}
+/* Mapa OpenStreetMap (Leaflet) com a mesma interface */
+class LMap{
+  constructor(el, opts = {}){ this.el = el; this.opts = opts; this.markers = {}; this.lines = {}; this.ready = false; }
+  async init(center){
+    await loadLeaflet();
+    this.map = L.map(this.el, {zoomControl:false, attributionControl:true}).setView([center.lat, center.lng], 15);
+    L.control.zoom({position:'topright'}).addTo(this.map);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {maxZoom:20, subdomains:'abcd',
+      attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'}).addTo(this.map);
+    if (this.opts.onTap) this.map.on('click', e => this.opts.onTap({lat:e.latlng.lat, lng:e.latlng.lng}));
+    setTimeout(() => this.map.invalidateSize(), 200);
+    this.ready = true; return this;
+  }
+  marker(key, pos, html, z = 1){
+    let m = this.markers[key];
+    if (!pos){ if (m){ m.remove(); delete this.markers[key]; } return; }
+    const icon = () => L.divIcon({className:'lmk', html:`<div style="transform:translate(-50%,-100%);width:max-content">${html}</div>`, iconSize:[0, 0]});
+    if (!m){ m = L.marker([pos.lat, pos.lng], {icon:icon(), zIndexOffset:z * 100, interactive:false}).addTo(this.map); m._html = html; this.markers[key] = m; }
+    if (m._html !== html){ m.setIcon(icon()); m._html = html; }
+    m.setLatLng([pos.lat, pos.lng]);
+  }
+  line(key, path, color = '#FFC400', dashed = false){
+    let l = this.lines[key];
+    if (!path || path.length < 2){ if (l){ l.forEach(x => x.remove()); delete this.lines[key]; } return; }
+    const sig = encPath(path) + color + dashed; if (l && l._sig === sig) return;
+    if (l) l.forEach(x => x.remove());
+    const pts = path.map(p => [p.lat, p.lng]);
+    l = [L.polyline(pts, {color:'#000', opacity:.45, weight:9, interactive:false}).addTo(this.map),
+         L.polyline(pts, {color, weight:5, opacity:1, dashArray:dashed ? '2 12' : null, lineCap:'round', interactive:false}).addTo(this.map)];
+    l._sig = sig; this.lines[key] = l;
+  }
+  keep(keys){
+    for (const k of Object.keys(this.markers)) if (!keys.includes(k)) this.marker(k, null);
+    for (const k of Object.keys(this.lines)) if (!keys.includes(k)) this.line(k, null);
+  }
+  fit(points, pad){
+    points = points.filter(Boolean).map(ll); if (!points.length || !this.map) return;
+    if (points.length === 1 || points.every(p => hav(p, points[0]) < 30)){ this.map.setView([points[0].lat, points[0].lng], 16); return; }
+    const b = L.latLngBounds(points.map(p => [p.lat, p.lng]));
+    const P = typeof pad === 'number' || !pad ? {top:pad || 40, bottom:pad || 40, left:pad || 40, right:pad || 40} : pad;
+    this.map.fitBounds(b, {paddingTopLeft:[P.left, P.top], paddingBottomRight:[P.right, P.bottom], maxZoom:17});
+  }
+  panTo(p){ this.map.panTo([p.lat, p.lng]); }
+  center(){ const c = this.map.getCenter(); return {lat:c.lat, lng:c.lng}; }
+  onIdle(fn){ this.map.on('moveend', fn); }
+}
+const makeMap = (el, opts) => MODE === 'osm' ? new LMap(el, opts) : new GMap(el, opts);
+
+/* ================= armazenamento (Firebase Firestore ou local) ================= */
+const Store = {
+  mode:'local', fs:null, db:null, ls:{},
+  async init(){
+    if (!CFG.firebase) return;
+    try{
+      const V = '10.12.2';
+      const app = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`);
+      this.fs = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`);
+      this.db = this.fs.getFirestore(app.initializeApp(CFG.firebase));
+      this.mode = 'cloud';
+    }catch(e){ console.error(e); toast('Não consegui conectar ao Firebase — usando dados locais.'); }
+  },
+  key: c => 'mt_' + c,
+  readLocal(c){ return LS.get(this.key(c), {}); },
+  notify(c){ (this.ls[c] || []).forEach(f => f()); },
+  subscribe(c, cb){
+    if (this.mode === 'cloud'){
+      const { collection, onSnapshot } = this.fs;
+      return onSnapshot(collection(this.db, c), s => { setSync('ok'); cb(s.docs.map(d => ({...d.data(), id:d.id}))); },
+        e => { console.error(e); setSync('warn', e.code === 'permission-denied' ? 'sem permissão no Firestore' : 'erro ao sincronizar'); });
+    }
+    const fire = () => cb(Object.values(this.readLocal(c)));
+    (this.ls[c] = this.ls[c] || []).push(fire); fire();
+  },
+  async run(fn){
+    try{ return await fn(); }
+    catch(e){ console.error(e); toast(e && e.code === 'permission-denied' ? 'Sem permissão para salvar (regras do Firestore).' : 'Não foi possível salvar. Tente de novo.'); throw e; }
+  },
+  async set(c, id, data){
+    const {id:_, ...body} = data;
+    if (this.mode === 'cloud'){ const { doc, setDoc } = this.fs; return this.run(() => setDoc(doc(this.db, c, id), clean(body))); }
+    const all = this.readLocal(c); all[id] = {...clean(body), id}; LS.set(this.key(c), all); this.notify(c);
+  },
+  async update(c, id, p){
+    if (this.mode === 'cloud'){ const { doc, updateDoc } = this.fs; return this.run(() => updateDoc(doc(this.db, c, id), clean(p))); }
+    const all = this.readLocal(c); if (!all[id]) return; all[id] = {...all[id], ...clean(p)}; LS.set(this.key(c), all); this.notify(c);
+  },
+  async del(c, id){
+    if (this.mode === 'cloud'){ const { doc, deleteDoc } = this.fs; return this.run(() => deleteDoc(doc(this.db, c, id))); }
+    const all = this.readLocal(c); delete all[id]; LS.set(this.key(c), all); this.notify(c);
+  },
+  /* aceita a corrida só se ainda estiver "procurando" (evita dois pilotos na mesma corrida) */
+  async claim(id, p){
+    if (this.mode === 'cloud'){
+      const { doc, runTransaction } = this.fs; const ref = doc(this.db, 'corridas', id);
+      try{
+        await runTransaction(this.db, async tx => { const s = await tx.get(ref); if (!s.exists() || s.data().status !== 'procurando') throw new Error('taken'); tx.update(ref, clean(p)); });
+        return true;
+      }catch(e){ if (e.message === 'taken') return false; toast('Não foi possível aceitar. Tente de novo.'); throw e; }
+    }
+    const all = this.readLocal('corridas'); if (!all[id] || all[id].status !== 'procurando') return false;
+    all[id] = {...all[id], ...clean(p)}; LS.set(this.key('corridas'), all); this.notify('corridas'); return true;
+  }
+};
+window.addEventListener('storage', e => { if (Store.mode === 'local' && e.key && e.key.startsWith('mt_')) Store.notify(e.key.slice(3)); });
+function setSync(kind, txt){
+  const b = $('#syncBadge');
+  if (Store.mode === 'local'){ b.className = 'badge warn'; b.textContent = '💾 salvo só neste aparelho'; return; }
+  b.className = 'badge ' + (kind === 'ok' ? 'ok' : 'warn'); b.textContent = kind === 'ok' ? '● online · sincronizado' : '⚠ ' + (txt || '');
+}
+
+/* ================= estado ================= */
+const S = {
+  empresas:[], pilotos:[], corridas:[], loaded:{},
+  view:'passageiro', field:'origem', origem:null, destino:null, rota:null, calc:false,
+  empresaSel:'', pagamento:'Dinheiro',
+  pNome:LS.get('mtu_nome', ''), pTel:LS.get('mtu_tel', ''),
+  minha:LS.get('mtu_minha', null), minhaLocal:null,
+  meuPiloto:LS.get('mtu_piloto', ''), myPos:null,
+  admTab:'empresas', filtroEmp:'', advancing:'', sheetMin:false,
+};
+const emp = id => S.empresas.find(e => e.id === id);
+const pil = id => S.pilotos.find(p => p.id === id);
+const ATIVOS = ['procurando','aceita','em_andamento'];
+const ocupado = pid => S.corridas.some(r => r.pilotoId === pid && (r.status === 'aceita' || r.status === 'em_andamento'));
+function myRide(){
+  if (!S.minha) return null;
+  return S.corridas.find(r => r.id === S.minha) || (S.minhaLocal && S.minhaLocal.id === S.minha ? S.minhaLocal : null);
+}
+const pathCache = {};
+const ridePath = (r, k) => { const s = r[k]; if (!s) return []; return pathCache[s] || (pathCache[s] = decPath(s)); };
+function motoState(r){
+  let path, t0, target;
+  if (r.status === 'aceita'){ path = ridePath(r, 'rotaBusca'); if (!path.length && r.inicio) path = [ll(r.inicio), ll(r.origem)]; t0 = r.aceitaEm; target = r.origem; }
+  else if (r.status === 'em_andamento'){ path = ridePath(r, 'rota'); if (!path.length) path = [ll(r.origem), ll(r.destino)]; t0 = r.iniciadaEm; target = r.destino; }
+  else return null;
+  const sp = r.demo ? DEMO_SPEED : SPEED;
+  const gp = r.posPiloto;
+  if (!r.demo && gp && Date.now() - gp.t < GPS_FRESH){
+    const rem = hav(gp, target) * 1.25;
+    return {pos:ll(gp), rem, prog:rem < 60 ? 1 : 0, sp, real:true};
+  }
+  const L = pathLen(path); const d = clamp((Date.now() - (t0 || Date.now())) / 1000 * sp, 0, L);
+  return {pos:pointAt(path, d), prog:L ? d / L : 1, rem:L - d, sp};
+}
+const fmtRem = (rem, sp) => { const m = Math.ceil(rem / sp / 60); return rem < 40 ? 'agora' : m <= 1 ? 'menos de 1 min' : m + ' min'; };
+const motoCor = r => { const p = pil(r.pilotoId); return corHex((p && p.moto && p.moto.cor) || (r.moto && r.moto.cor)); };
+const precoEmp = (e, km) => Math.round(Math.max(num(e.minima, 0), num(e.tarifaBase, 0) + num(e.porKm, 0) * km) * 100) / 100;
+
+/* ================= PASSAGEIRO ================= */
+let pmap;
+function passPad(){
+  const m = $('#passMap').getBoundingClientRect();
+  const top = $('#searchCard').getBoundingClientRect().bottom - m.top + 24;
+  const bottom = m.bottom - $('#sheet').getBoundingClientRect().top + 24;
+  return {top, bottom:Math.min(bottom, m.height - top - 80), left:40, right:60};
+}
+function drawPass(){
+  if (!pmap || !pmap.ready) return;
+  const r = myRide(); const keep = [];
+  const put = (k, ...a) => { keep.push(k); pmap.marker(k, ...a); };
+  const line = (k, ...a) => { keep.push(k); pmap.line(k, ...a); };
+  if (r && r.status !== 'cancelada'){
+    if (r.status === 'aceita') line('busca', ridePath(r, 'rotaBusca').length ? ridePath(r, 'rotaBusca') : (r.inicio ? [ll(r.inicio), ll(r.origem)] : null), '#60a5fa', true);
+    if (r.status !== 'concluida') line('rota', ridePath(r, 'rota').length ? ridePath(r, 'rota') : [ll(r.origem), ll(r.destino)]);
+    put('d', r.destino, MK.destino(), 3);
+    if (r.status !== 'em_andamento') put('o', r.origem, MK.origem(), 3);
+    if (pmap.markers.moto) keep.push('moto');
+  } else {
+    for (const p of S.pilotos) if (p.online && p.pos && Date.now() - (p.pos.t || 0) < 10 * 60000 && !ocupado(p.id)) put('l_' + p.id, p.pos, MK.livre(corHex(p.moto && p.moto.cor)), 2);
+    if (S.rota) line('rota', S.rota.path);
+    if (S.destino) put('d', S.destino, MK.destino(), 3);
+    if (S.origem) put('o', S.origem, MK.origem(), 3);
+  }
+  if (S.gpsPass) put('me', S.gpsPass, MK.eu(), 1);
+  pmap.keep(keep);
+}
+async function onPassTap(p){
+  if (myRide()){ toast('Você já tem uma corrida. Finalize ou cancele para pedir outra.'); return; }
+  const which = S.field === 'destino' ? 'destino' : 'origem';
+  S[which] = {...p, end:'Buscando endereço…'};
+  afterPoint(which);
+  const end = await addressOf(p);
+  if (S[which] && S[which].lat === p.lat && S[which].lng === p.lng){ S[which].end = end; updateSearchCard(); renderPass(); }
+}
+async function afterPoint(which){
+  if (which === 'origem' && !S.destino) S.field = 'destino';
+  else if (which === 'destino' && !S.origem) S.field = 'origem';
+  S.sheetMin = false; S.rota = null;
+  updateSearchCard(); renderPass();
+  if (S.origem && S.destino){
+    S.calc = true; renderPass();
+    const o = S.origem, d = S.destino;
+    const rt = await calcRoute(o, d);
+    if (S.origem !== o || S.destino !== d) return;
+    S.rota = rt; S.calc = false; renderPass();
+    pmap.fit([...rt.path, o, d], passPad());
+  } else if (S[which]) pmap.panTo(S[which]);
+}
+async function usarGps(){
+  if (myRide()) return;
+  toast('Obtendo sua localização…');
+  const p = await getGps();
+  if (!p){ toast('Não foi possível usar o GPS. Libere a localização ou toque no mapa.'); return; }
+  S.gpsPass = p; S.origem = {lat:p.lat, lng:p.lng, end:'Minha localização (GPS)'};
+  afterPoint('origem');
+  const end = await addressOf(p); if (S.origem && S.origem.lat === p.lat){ S.origem.end = end; updateSearchCard(); renderPass(); }
+}
+function updateSearchCard(){
+  const r = myRide();
+  const o = r ? r.origem : S.origem, d = r ? r.destino : S.destino;
+  const ot = $('#origTxt'); ot.textContent = o ? o.end : 'Toque no mapa ou use o GPS'; ot.classList.toggle('ph', !o);
+  $('#destTxt').textContent = d ? d.end : '';
+  $('#destTxt').style.display = d ? '' : 'none';
+  $('#destAC').style.display = d || r ? 'none' : '';
+  $('#xOrig').style.display = o && !r ? '' : 'none';
+  $('#gpsBtn').style.display = !o && !r ? '' : 'none';
+  $('#xDest').style.display = d && !r ? '' : 'none';
+  $('#fOrig').classList.toggle('active', !r && S.field === 'origem');
+  $('#fDest').classList.toggle('active', !r && S.field === 'destino');
+}
+function setupOsmSearch(){
+  const box = $('#destAC');
+  box.innerHTML = `<input id="destInput" autocomplete="off" placeholder="Digite o destino ou toque no mapa" style="background:none;border:0;outline:0;width:100%;font-size:14px;font-weight:600;padding:0">`;
+  const inp = $('#destInput'), sugs = $('#sugs'); let timer = null, seq = 0;
+  const show = list => {
+    S._sugs = list;
+    if (!list.length){ sugs.innerHTML = `<div class="sug muted">Nada encontrado — tente outro nome ou toque no mapa.</div>`; sugs.style.display = ''; return; }
+    sugs.innerHTML = list.map((it, i) => `<div class="sug" data-act="sug" data-i="${i}"><span style="font-size:16px">📍</span><div><b>${esc(it.titulo)}</b><small>${esc(it.sub)}</small></div></div>`).join('');
+    sugs.style.display = '';
+  };
+  const buscar = async q => {
+    const my = ++seq; const c = pmap.center() || CFG.center;
+    try{
+      const r = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=7&lat=${c.lat}&lon=${c.lng}&location_bias_scale=0.4`);
+      const j = await r.json(); if (my !== seq) return;
+      show((j.features || []).filter(f => !f.properties.countrycode || f.properties.countrycode === 'BR').map(f => {
+        const p = f.properties; const rua = [p.street, p.housenumber].filter(Boolean).join(', ');
+        const titulo = p.name || rua || p.city || q;
+        const sub = [p.name && rua ? rua : '', p.district || p.locality, p.city, p.state].filter(Boolean).join(' - ');
+        return {titulo, sub, lat:f.geometry.coordinates[1], lng:f.geometry.coordinates[0]};
+      }));
+    }catch(e){ console.warn(e); if (my === seq) show([]); }
+  };
+  inp.addEventListener('input', () => { clearTimeout(timer); const q = inp.value.trim(); if (q.length < 3){ sugs.style.display = 'none'; return; } timer = setTimeout(() => buscar(q), 450); });
+  inp.addEventListener('focus', () => { if (!myRide()){ S.field = 'destino'; updateSearchCard(); } });
+  inp.addEventListener('blur', () => setTimeout(() => { sugs.style.display = 'none'; }, 200));
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter' && S._sugs && S._sugs[0]){ e.preventDefault(); pickSug(0); } });
+}
+function pickSug(i){
+  const it = S._sugs && S._sugs[i]; if (!it) return;
+  $('#sugs').style.display = 'none'; const inp = $('#destInput'); if (inp){ inp.value = ''; inp.blur(); }
+  S.destino = {lat:it.lat, lng:it.lng, end:[it.titulo, it.sub].filter(Boolean).join(' — ')};
+  afterPoint('destino');
+}
+async function setupAutocomplete(){
+  if (MODE === 'osm') return setupOsmSearch();
+  const box = $('#destAC');
+  try{
+    const { PlaceAutocompleteElement } = await google.maps.importLibrary('places');
+    const ac = new PlaceAutocompleteElement({ includedRegionCodes:['br'] });
+    ac.id = 'placeAC';
+    ac.setAttribute('placeholder', 'Digite o destino ou toque no mapa');
+    box.innerHTML = ''; box.appendChild(ac);
+    const bias = () => { try{ ac.locationBias = pmap.map.getCenter(); }catch(e){} };
+    pmap.onIdle(bias); bias();
+    ac.addEventListener('focusin', () => { if (!myRide()){ S.field = 'destino'; updateSearchCard(); } });
+    ac.addEventListener('gmp-select', async ({ placePrediction }) => {
+      const place = placePrediction.toPlace();
+      await place.fetchFields({ fields:['displayName', 'formattedAddress', 'location'] });
+      if (!place.location) return;
+      const nome = place.displayName || '';
+      const end = place.formattedAddress ? (nome && !place.formattedAddress.startsWith(nome) ? `${nome} — ${place.formattedAddress}` : place.formattedAddress) : nome;
+      S.destino = {lat:place.location.lat(), lng:place.location.lng(), end:end.replace(/, Brasil$/, '').replace(/, Brazil$/, '')};
+      afterPoint('destino');
+    });
+    ac.addEventListener('gmp-error', e => { console.warn(e); toast('Busca de endereços indisponível — ative a "Places API (New)" na sua chave.'); });
+  }catch(e){
+    console.warn(e);
+    box.innerHTML = `<div class="val ph">Toque no mapa para marcar o destino</div>`;
+  }
+}
+function empresaOpts(km){
+  return S.empresas.map(e => {
+    const online = S.pilotos.filter(p => p.empresaId === e.id && p.online && !ocupado(p.id)).length;
+    return {e, online, preco:precoEmp(e, km)};
+  }).sort((a, b) => (b.online > 0) - (a.online > 0) || a.preco - b.preco);
+}
+function renderPass(){
+  const body = $('#sheetBody'); const r = myRide();
+  $('#sheet').classList.toggle('min', !!S.sheetMin);
+  if (S.minha && !r && S.loaded.corridas){ S.minha = null; LS.set('mtu_minha', null); }
+  updateSearchCard();
+  let h = '';
+  if (r){ h = rideSheet(r); }
+  else if (!S.empresas.length){
+    h = `<div class="empty"><div class="big">🏢</div><b>Nenhuma empresa de mototáxi cadastrada</b><p class="small mt">Cadastre empresas e pilotos na aba <b>Empresas</b> para começar a pedir corridas.</p><button class="btn mt" data-act="nav" data-v="empresas">Ir para Empresas</button></div>`;
+  }
+  else if (!S.origem){
+    const n = S.pilotos.filter(p => p.online && !ocupado(p.id)).length;
+    h = `<h2>Olá${S.pNome ? ', ' + esc(S.pNome.split(' ')[0]) : ''}! 👋</h2><p class="muted mt" style="font-size:14px">📍 Marque onde você está: <b style="color:var(--text)">toque no mapa</b> ou use o GPS.</p>
+      <button class="btn block mt" data-act="gps">📡 Usar minha localização</button>
+      <div class="row mt"><span class="tag ${n ? 'on' : ''}">● ${n} piloto${n === 1 ? '' : 's'} online</span><span class="tag">${S.empresas.length} empresa${S.empresas.length === 1 ? '' : 's'}</span></div>`;
+  }
+  else if (!S.destino){
+    h = `<h2>Para onde vamos?</h2><p class="muted mt" style="font-size:14px">🏁 Digite o endereço no campo <b style="color:var(--text)">“Para onde?”</b> ou toque no mapa para marcar o destino.</p>`;
+  }
+  else if (S.calc || !S.rota){
+    h = `<div style="text-align:center"><div class="spinner"></div><b>Calculando rota…</b></div>`;
+  }
+  else {
+    const km = Math.round(S.rota.distM / 100) / 10, min = Math.max(2, Math.round(S.rota.durS / 60));
+    const opts = empresaOpts(km);
+    if (!opts.find(o => o.e.id === S.empresaSel)) S.empresaSel = (opts.find(o => o.online) || opts[0]).e.id;
+    const sel = opts.find(o => o.e.id === S.empresaSel);
+    h = `<div class="row between"><h2>Escolha a empresa</h2><span class="muted small">${String(km).replace('.', ',')} km · ~${min} min${S.rota.aprox ? ' (aprox.)' : ''}</span></div>
+      <div class="list mt">${opts.map(o => `<div class="opt ${o.e.id === S.empresaSel ? 'on' : ''} ${o.online ? '' : 'off'}" data-act="pickEmp" data-id="${esc(o.e.id)}">
+        <div class="elogo" style="background:${safeColor(o.e.cor)}">${esc(initials(o.e.nome))}</div>
+        <div style="min-width:0"><b style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(o.e.nome)}</b><span class="small ${o.online ? '' : 'muted'}" style="color:${o.online ? '#86efac' : ''}">${o.online ? `● ${o.online} piloto${o.online === 1 ? '' : 's'} disponíve${o.online === 1 ? 'l' : 'is'}` : 'nenhum piloto online'}</span></div>
+        <div class="price">${BRL(o.preco)}</div></div>`).join('')}</div>
+      <div class="grid2 mt"><label class="f">Seu nome<input class="input" id="pNome" value="${esc(S.pNome)}" placeholder="Ex.: Maria"></label><label class="f">Telefone<input class="input" id="pTel" value="${esc(S.pTel)}" inputmode="tel" placeholder="(11) 99999-0000"></label></div>
+      <div class="row mt wrap">${PAGAMENTOS.map(p => `<button class="chip ${S.pagamento === p ? 'on' : ''}" data-act="pay" data-v="${p}">${p === 'Pix' ? '⚡' : p === 'Cartão' ? '💳' : '💵'} ${p}</button>`).join('')}</div>
+      <button class="btn block mt" data-act="pedir">Pedir mototáxi · ${BRL(sel.preco)}</button>
+      ${sel.online ? '' : `<p class="small muted mt" style="text-align:center">Essa empresa não tem pilotos online agora — o pedido fica aguardando.</p>`}`;
+  }
+  patch(body, h);
+  drawPass();
+}
+function driverCard(r){
+  const p = pil(r.pilotoId); const e = emp(r.empresaId);
+  const nome = p ? p.nome : r.pilotoNome || 'Piloto';
+  const m = (p && p.moto) || r.moto || {};
+  return `<div class="driver"><img class="avatar lg" src="${safeImg(p && p.foto, nome)}" alt="Foto de ${esc(nome)}">
+    <div style="min-width:0;flex:1"><b style="font-size:17px">${esc(nome)}</b><div class="small muted">${esc(e ? e.nome : r.empresaNome || '')}</div>
+    <div class="row mt" style="gap:8px;flex-wrap:wrap"><span class="plate">${esc(m.placa || '—')}</span></div></div></div>
+    <div class="kv mt"><dt>Moto</dt><dd>${esc([m.marca, m.modelo, m.ano].filter(Boolean).join(' ') || '—')}</dd>
+    <dt>Cor</dt><dd><span class="row" style="gap:6px"><span class="sw" style="background:${corHex(m.cor)}"></span>${esc(m.cor || '—')}</span></dd>
+    ${p && p.telefone ? `<dt>Telefone</dt><dd><a href="tel:${esc(p.telefone.replace(/[^\d+]/g, ''))}" style="color:var(--brand)">${esc(p.telefone)}</a></dd>` : ''}</div>`;
+}
+function tripBox(r){
+  return `<div class="trip mt"><div><span class="dot o"></span>${esc(r.origem.end)}</div><div><span class="dot d"></span>${esc(r.destino.end)}</div></div>
+  <div class="row between mt small"><span class="muted">${esc(r.empresaNome)} · ${esc(r.pagamento)} · ${String(r.distKm).replace('.', ',')} km</span><b style="font-size:15px">${BRL(r.valor)}</b></div>`;
+}
+function rideSheet(r){
+  if (r.status === 'procurando') return `<div style="text-align:center"><div class="spinner"></div><h2>Procurando piloto…</h2><p class="muted small mt">Seu pedido foi enviado para os pilotos da <b style="color:var(--text)">${esc(r.empresaNome)}</b>.</p></div>
+    ${tripBox(r)}
+    <div class="grid2 mt"><button class="btn ghost" data-act="cancelar">Cancelar</button><button class="btn ghost" data-act="simular" title="Modo demonstração">🧪 Simular aceite</button></div>
+    <p class="small muted mt" style="text-align:center">Testando sozinho? “Simular aceite” atribui um piloto da empresa e acelera o trajeto.</p>`;
+  if (r.status === 'aceita' || r.status === 'em_andamento'){
+    const lbl = r.status === 'aceita' ? 'Piloto a caminho' : 'Em viagem ao destino';
+    return `<div class="row between"><span class="tag b pulse">● ${lbl}</span>${r.demo ? '<span class="tag">🧪 demonstração</span>' : `<span class="tag" id="gpsTag">📡 GPS do piloto</span>`}</div>
+      <div class="eta mt" id="etaTxt">…</div>
+      <div class="hr"></div>${driverCard(r)}<div class="hr"></div>${tripBox(r)}
+      ${r.status === 'aceita' ? `<button class="btn danger block mt" data-act="cancelar">Cancelar corrida</button>` : ''}`;
+  }
+  if (r.status === 'concluida') return `<div style="text-align:center"><div style="font-size:44px">🏁</div><h2>Você chegou!</h2><p class="muted small mt">Corrida com ${esc(r.pilotoNome || 'seu piloto')} finalizada.</p><div class="eta mt">${BRL(r.valor)}</div><p class="small muted">${esc(r.pagamento)}</p>
+    <p class="small mt">Avalie seu piloto</p><div class="stars">${[1,2,3,4,5].map(n => `<button class="${(r.avaliacao || 0) >= n ? 'on' : ''}" data-act="rate" data-n="${n}">⭐</button>`).join('')}</div></div>
+    <button class="btn block mt" data-act="nova">Nova corrida</button>`;
+  return `<div style="text-align:center"><div style="font-size:44px">🚫</div><h2>Corrida cancelada</h2><p class="muted small mt">${r.canceladaPor === 'passageiro' ? 'Você cancelou esta corrida.' : 'A corrida foi cancelada.'}</p></div><button class="btn block mt" data-act="nova">Pedir outra corrida</button>`;
+}
+async function pedir(){
+  S.pNome = ($('#pNome')?.value || S.pNome).trim(); S.pTel = ($('#pTel')?.value || S.pTel).trim();
+  if (!S.pNome){ toast('Informe seu nome'); $('#pNome')?.focus(); return; }
+  LS.set('mtu_nome', S.pNome); LS.set('mtu_tel', S.pTel);
+  const e = emp(S.empresaSel); if (!e){ toast('Escolha uma empresa'); return; }
+  const km = Math.round(S.rota.distM / 100) / 10;
+  const id = uid();
+  const r = {id, status:'procurando', criadaEm:Date.now(), passageiro:{nome:S.pNome.slice(0, 60), tel:S.pTel.slice(0, 30)},
+    origem:{lat:S.origem.lat, lng:S.origem.lng, end:S.origem.end}, destino:{lat:S.destino.lat, lng:S.destino.lng, end:S.destino.end},
+    rota:encPath(S.rota.path), distKm:km, durMin:Math.round(S.rota.durS / 60), valor:precoEmp(e, km), empresaId:e.id, empresaNome:e.nome, pagamento:S.pagamento, pilotoId:null, demo:false};
+  S.minhaLocal = r; S.minha = id; LS.set('mtu_minha', id);
+  renderPass();
+  try{ await Store.set('corridas', id, r); toast('Pedido enviado! 🏍️'); }catch(err){ S.minha = null; S.minhaLocal = null; LS.set('mtu_minha', null); renderPass(); }
+}
+async function aceitarComo(r, p, demo, gps){
+  let inicio = gps && hav(gps, r.origem) < 40000 ? {lat:gps.lat, lng:gps.lng} : null;
+  if (!inicio){ const ang = (hash(p.id + r.id) % 628) / 100; inicio = offsetPoint(ll(r.origem), 900 + hash(r.id) % 1200, ang); }
+  const rb = await calcRoute(inicio, r.origem);
+  return Store.claim(r.id, {status:'aceita', pilotoId:p.id, pilotoNome:p.nome, moto:p.moto || {}, aceitaEm:Date.now(), inicio, rotaBusca:encPath(rb.path), demo:!!demo});
+}
+async function simular(){
+  const r = myRide(); if (!r || r.status !== 'procurando') return;
+  const cands = S.pilotos.filter(p => p.empresaId === r.empresaId);
+  const p = cands.find(p => p.online && !ocupado(p.id)) || cands.find(p => !ocupado(p.id)) || cands[0];
+  if (!p){ toast('Essa empresa ainda não tem pilotos cadastrados.'); return; }
+  await aceitarComo(r, p, true, null);
+}
+
+/* ================= PILOTO ================= */
+let pilotMap = null, pilotMapInit = null;
+function myActive(){ return S.corridas.find(r => r.pilotoId === S.meuPiloto && (r.status === 'aceita' || r.status === 'em_andamento')); }
+function pendentesPara(p){ return p ? S.corridas.filter(r => r.status === 'procurando' && r.empresaId === p.empresaId).sort((a, b) => a.criadaEm - b.criadaEm) : []; }
+function drawPilot(){
+  if (!pilotMap || !pilotMap.ready) return;
+  const r = myActive(); const keep = [];
+  if (r){
+    if (r.status === 'aceita'){ keep.push('busca', 'o'); pilotMap.line('busca', ridePath(r, 'rotaBusca').length ? ridePath(r, 'rotaBusca') : [ll(r.inicio || r.origem), ll(r.origem)], '#60a5fa', true); pilotMap.marker('o', r.origem, MK.origem(), 3); }
+    keep.push('rota', 'd'); pilotMap.line('rota', ridePath(r, 'rota').length ? ridePath(r, 'rota') : [ll(r.origem), ll(r.destino)]); pilotMap.marker('d', r.destino, MK.destino(), 3);
+    if (pilotMap.markers.moto) keep.push('moto');
+  }
+  pilotMap.keep(keep);
+}
+async function ensurePilotMap(act){
+  if (!pilotMap){
+    pilotMap = makeMap($('#pilotMap'));
+    pilotMapInit = pilotMap.init(act.origem).then(() => { drawPilot(); fitPilot(); });
+  }
+  await pilotMapInit;
+}
+function fitPilot(){ const a = myActive(); if (!a || !pilotMap || !pilotMap.ready) return; pilotMap.fit(a.status === 'aceita' ? [...ridePath(a, 'rotaBusca'), a.inicio, a.origem, a.destino] : [...ridePath(a, 'rota'), a.origem, a.destino], 40); }
+function renderPiloto(){
+  const me = pil(S.meuPiloto);
+  if (S.meuPiloto && !me && S.loaded.pilotos){ S.meuPiloto = ''; LS.set('mtu_piloto', ''); }
+  let top = '';
+  if (!S.pilotos.length){
+    top = `<div class="empty"><div class="big">🏍️</div><b>Nenhum piloto cadastrado</b><p class="small mt">As empresas cadastram seus mototaxistas na aba <b>Empresas → Pilotos</b>.</p><button class="btn mt" data-act="nav" data-v="empresas">Cadastrar pilotos</button></div>`;
+  } else {
+    const groups = S.empresas.map(e => ({e, ps:S.pilotos.filter(p => p.empresaId === e.id)})).filter(g => g.ps.length);
+    top = `<label class="f">Entrar como piloto<select class="input" id="selPiloto"><option value="">Selecione seu nome…</option>${groups.map(g => `<optgroup label="${esc(g.e.nome)}">${g.ps.map(p => `<option value="${esc(p.id)}" ${p.id === S.meuPiloto ? 'selected' : ''}>${esc(p.nome)} — ${esc(p.moto && p.moto.placa || '')}</option>`).join('')}</optgroup>`).join('')}</select></label>`;
+    if (me){
+      const e = emp(me.empresaId); const m = me.moto || {};
+      const hoje = new Date().toDateString();
+      const feitas = S.corridas.filter(r => r.pilotoId === me.id && r.status === 'concluida' && new Date(r.concluidaEm || r.criadaEm).toDateString() === hoje);
+      top += `<div class="card mt"><div class="driver"><img class="avatar lg" src="${safeImg(me.foto, me.nome)}" alt="">
+        <div style="flex:1;min-width:0"><b style="font-size:17px">${esc(me.nome)}</b><div class="small muted">${esc(e ? e.nome : '')}</div>
+        <div class="row mt small" style="gap:8px;flex-wrap:wrap"><span class="sw" style="background:${corHex(m.cor)}"></span>${esc([m.marca, m.modelo].filter(Boolean).join(' '))} <span class="plate" style="font-size:11px;padding:2px 6px;border-top-width:3px">${esc(m.placa || '')}</span></div></div>
+        <button class="switch ${me.online ? 'on' : ''}" data-act="toggleOnline" aria-label="Ficar online"></button></div>
+        <div class="row between mt small"><span style="color:${me.online ? '#86efac' : 'var(--muted)'};font-weight:700">${me.online ? '● Você está online' : '○ Você está offline'}</span><span class="muted">Hoje: <b style="color:var(--text)">${feitas.length}</b> corridas · <b style="color:var(--text)">${BRL(feitas.reduce((s, r) => s + num(r.valor), 0))}</b></span></div>
+        ${me.online ? `<div class="small mt" style="color:${S.gpsErr ? '#fca5a5' : 'var(--muted)'}">${S.gpsErr ? '⚠ GPS bloqueado — libere a localização para os passageiros verem você no mapa.' : S.myPos ? '📡 GPS ativo — sua posição é compartilhada com o passageiro.' : '📡 Ativando GPS…'}</div>` : ''}</div>`;
+    }
+  }
+  patch($('#pilotTop'), top);
+
+  const act = me && myActive();
+  const wrap = $('#pilotMapWrap');
+  if (act){
+    wrap.style.display = '';
+    ensurePilotMap(act).then(() => { drawPilot(); if (pilotMap._for !== act.id + act.status){ pilotMap._for = act.id + act.status; fitPilot(); } });
+  } else wrap.style.display = 'none';
+
+  let b = '';
+  if (me && act){
+    const navUrl = act.status === 'aceita' ? `https://www.google.com/maps/dir/?api=1&destination=${act.origem.lat},${act.origem.lng}&travelmode=driving` : `https://www.google.com/maps/dir/?api=1&destination=${act.destino.lat},${act.destino.lng}&travelmode=driving`;
+    b = `<div class="card"><div class="row between"><span class="tag b">● ${act.status === 'aceita' ? 'Indo buscar o passageiro' : 'Levando ao destino'}</span><b>${BRL(act.valor)}</b></div>
+      <div class="eta mt" id="pEtaTxt">…</div>
+      <div class="kv mt"><dt>Passageiro</dt><dd>${esc(act.passageiro && act.passageiro.nome)}</dd>${act.passageiro && act.passageiro.tel ? `<dt>Telefone</dt><dd><a href="tel:${esc(act.passageiro.tel.replace(/[^\d+]/g, ''))}" style="color:var(--brand)">${esc(act.passageiro.tel)}</a></dd>` : ''}<dt>Pagamento</dt><dd>${esc(act.pagamento)}</dd></div>
+      ${tripBox(act)}
+      <a class="btn ghost block mt" href="${navUrl}" target="_blank" rel="noopener">🧭 Abrir navegação no Google Maps</a>
+      ${act.status === 'aceita' ? `<button class="btn ok block mt" data-act="embarcou">✅ Passageiro embarcou</button><button class="btn ghost block mt" data-act="desistir">Desistir da corrida</button>` : `<button class="btn block mt" data-act="finalizar">🏁 Finalizar corrida</button>`}</div>`;
+  } else if (me){
+    const pend = pendentesPara(me);
+    if (!me.online) b = `<div class="empty"><div class="big">😴</div><b>Você está offline</b><p class="small mt">Ative o botão acima para receber pedidos de corrida da ${esc(emp(me.empresaId)?.nome || 'sua empresa')}.</p></div>`;
+    else if (!pend.length) b = `<div class="empty"><div class="spinner" style="width:40px;height:40px"></div><b>Aguardando pedidos…</b><p class="small mt">Novos pedidos aparecem aqui automaticamente.</p></div>`;
+    else b = `<h3 class="mb">Pedidos disponíveis (${pend.length})</h3><div class="list">${pend.map(r => { const dist = S.myPos ? hav(S.myPos, r.origem) / 1000 : null; return `<div class="card"><div class="row between"><b>${esc(r.passageiro && r.passageiro.nome)}</b><span class="small muted">${dist != null ? `📍 ${dist.toFixed(1).replace('.', ',')} km de você · ` : ''}${ago(r.criadaEm)}</span></div>${tripBox(r)}<button class="btn block mt" data-act="aceitar" data-id="${esc(r.id)}">Aceitar corrida · ${BRL(r.valor)}</button></div>`; }).join('')}</div>`;
+  } else if (S.pilotos.length) b = `<p class="note">Selecione seu nome acima para ficar online e receber corridas. Dica: envie o link do app com <b>#piloto</b> no final para os seus mototaxistas.</p>`;
+  patch($('#pilotBottom'), b);
+  pilotGps();
+}
+function renderPilotCount(){
+  const me = pil(S.meuPiloto); const n = me && me.online && !myActive() ? pendentesPara(me).length : 0;
+  const c = $('#pilotCnt'); c.style.display = n ? '' : 'none'; c.textContent = n;
+}
+/* GPS do piloto: compartilha a posição enquanto está online */
+let gpsWatch = null, lastPilotWrite = {t:0, pos:null}, lastRideWrite = 0;
+function pilotGps(){
+  const me = pil(S.meuPiloto);
+  const want = !!(me && me.online && navigator.geolocation);
+  if (want && gpsWatch == null){
+    gpsWatch = navigator.geolocation.watchPosition(p => {
+      const had = !!S.myPos;
+      S.myPos = {lat:p.coords.latitude, lng:p.coords.longitude}; S.gpsErr = false;
+      if (!had && S.view === 'piloto') renderPiloto();
+      onPilotPos();
+    }, err => { S.gpsErr = true; if (S.view === 'piloto') renderPiloto(); }, {enableHighAccuracy:true, maximumAge:5000, timeout:20000});
+  } else if (!want && gpsWatch != null){ navigator.geolocation.clearWatch(gpsWatch); gpsWatch = null; S.myPos = null; }
+}
+function onPilotPos(){
+  const me = pil(S.meuPiloto); if (!me || !S.myPos) return;
+  const now = Date.now(); const act = myActive();
+  if (act && !act.demo && now - lastRideWrite > 8000){ lastRideWrite = now; Store.update('corridas', act.id, {posPiloto:{...S.myPos, t:now}}).catch(() => {}); }
+  const moved = !lastPilotWrite.pos || hav(lastPilotWrite.pos, S.myPos) > 30;
+  if (!act && (now - lastPilotWrite.t > 60000 || (moved && now - lastPilotWrite.t > 20000))){ lastPilotWrite = {t:now, pos:S.myPos}; Store.update('pilotos', me.id, {pos:{...S.myPos, t:now}}).catch(() => {}); }
+}
+async function aceitar(id){
+  const me = pil(S.meuPiloto); if (!me) return;
+  if (myActive()){ toast('Finalize sua corrida atual primeiro.'); return; }
+  const r = S.corridas.find(x => x.id === id);
+  if (!r || r.status !== 'procurando'){ toast('Essa corrida já foi aceita por outro piloto.'); return; }
+  toast('Aceitando…');
+  const gps = S.myPos || await getGps(5000);
+  const ok = await aceitarComo(r, me, false, gps);
+  toast(ok ? 'Corrida aceita! Vá até o passageiro.' : 'Essa corrida já foi aceita por outro piloto.');
+}
+
+
+/* ================= EMPRESAS (admin) ================= */
+function renderAdmin(){
+  patch($('#admTabs'), [['empresas','🏢 Empresas'],['pilotos','🏍️ Pilotos'],['corridas','🧾 Corridas']].map(([k, l]) => `<button class="chip ${S.admTab === k ? 'on' : ''}" data-act="admTab" data-v="${k}">${l}</button>`).join(''));
+  const online = S.pilotos.filter(p => p.online).length;
+  const hoje = new Date().toDateString();
+  const ch = S.corridas.filter(r => new Date(r.criadaEm).toDateString() === hoje).length;
+  let h = `<div class="stats mb"><div class="stat"><b>${S.empresas.length}</b><span>empresas</span></div><div class="stat"><b>${S.pilotos.length}</b><span>pilotos</span></div><div class="stat"><b style="color:#86efac">${online}</b><span>online</span></div><div class="stat"><b>${ch}</b><span>corridas hoje</span></div></div>`;
+  if (S.admTab === 'empresas'){
+    h += `<div class="row between mb"><h3>Empresas de mototáxi</h3><button class="btn sm" data-act="novaEmpresa">＋ Nova empresa</button></div>`;
+    if (!S.empresas.length) h += `<div class="empty"><div class="big">🏢</div><b>Nenhuma empresa ainda</b><p class="small mt">Cadastre a primeira empresa de mototáxi. Cada empresa define suas tarifas e cadastra seus pilotos.</p><div class="row mt" style="justify-content:center;flex-wrap:wrap"><button class="btn" data-act="novaEmpresa">Cadastrar empresa</button><button class="btn ghost" data-act="seed">🧪 Criar dados de exemplo</button></div></div>`;
+    else h += `<div class="list">${S.empresas.slice().sort((a, b) => (a.nome || '').localeCompare(b.nome || '')).map(e => {
+      const ps = S.pilotos.filter(p => p.empresaId === e.id); const on = ps.filter(p => p.online).length;
+      return `<div class="card"><div class="row"><div class="elogo" style="background:${safeColor(e.cor)}">${esc(initials(e.nome))}</div><div style="flex:1;min-width:0"><b>${esc(e.nome)}</b><div class="small muted">${esc([e.cidade, e.telefone].filter(Boolean).join(' · '))}</div></div></div>
+        <div class="row wrap mt" style="gap:6px"><span class="tag">Bandeirada ${BRL(e.tarifaBase)}</span><span class="tag">${BRL(e.porKm)}/km</span><span class="tag">Mínima ${BRL(e.minima)}</span><span class="tag ${on ? 'on' : ''}">🏍️ ${ps.length} piloto${ps.length === 1 ? '' : 's'} · ${on} online</span></div>
+        ${e.cnpj || e.responsavel ? `<div class="small muted mt">${esc([e.cnpj && 'CNPJ ' + e.cnpj, e.responsavel && 'Resp.: ' + e.responsavel].filter(Boolean).join(' · '))}</div>` : ''}
+        <div class="row mt" style="gap:8px"><button class="btn sm" data-act="novoPiloto" data-emp="${esc(e.id)}">＋ Piloto</button><button class="btn ghost sm" data-act="verPilotos" data-emp="${esc(e.id)}">Ver pilotos</button><span style="flex:1"></span><button class="btn ghost sm" data-act="editEmpresa" data-id="${esc(e.id)}">Editar</button><button class="btn danger sm" data-act="delEmpresa" data-id="${esc(e.id)}" aria-label="Excluir">🗑</button></div></div>`; }).join('')}</div>`;
+  }
+  if (S.admTab === 'pilotos'){
+    if (S.filtroEmp && !emp(S.filtroEmp)) S.filtroEmp = '';
+    h += `<div class="row between mb"><h3>Mototaxistas</h3><button class="btn sm" data-act="novoPiloto" ${S.empresas.length ? '' : 'disabled'}>＋ Novo piloto</button></div>`;
+    if (!S.empresas.length) h += `<div class="empty"><div class="big">🏢</div><b>Cadastre uma empresa primeiro</b><p class="small mt">Todo piloto pertence a uma empresa de mototáxi.</p><button class="btn mt" data-act="admTab" data-v="empresas">Ir para Empresas</button></div>`;
+    else {
+      h += `<select class="input mb" id="filtroEmp"><option value="">Todas as empresas</option>${S.empresas.map(e => `<option value="${esc(e.id)}" ${S.filtroEmp === e.id ? 'selected' : ''}>${esc(e.nome)}</option>`).join('')}</select>`;
+      const ps = S.pilotos.filter(p => !S.filtroEmp || p.empresaId === S.filtroEmp).sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
+      if (!ps.length) h += `<div class="empty"><div class="big">🏍️</div><b>Nenhum piloto aqui</b><p class="small mt">Cadastre o mototaxista com foto, nome e os dados da moto.</p><button class="btn mt" data-act="novoPiloto" data-emp="${esc(S.filtroEmp)}">Cadastrar piloto</button></div>`;
+      else h += `<div class="list">${ps.map(p => { const m = p.moto || {}; const e = emp(p.empresaId); const busy = ocupado(p.id);
+        return `<div class="card"><div class="driver"><img class="avatar" src="${safeImg(p.foto, p.nome)}" alt=""><div style="flex:1;min-width:0"><div class="row between"><b>${esc(p.nome)}</b><span class="tag ${busy ? 'b' : p.online ? 'on' : ''}">${busy ? 'em corrida' : p.online ? '● online' : 'offline'}</span></div>
+          <div class="small muted">${esc(e ? e.nome : '—')}${p.telefone ? ' · ' + esc(p.telefone) : ''}</div>
+          <div class="row mt small" style="gap:8px;flex-wrap:wrap"><span class="sw" style="background:${corHex(m.cor)}"></span><span>${esc([m.marca, m.modelo, m.ano].filter(Boolean).join(' '))} · ${esc(m.cor || '')}</span><span class="plate" style="font-size:11px;padding:2px 6px;border-top-width:3px">${esc(m.placa || '')}</span></div></div></div>
+          <div class="row end mt" style="gap:8px"><button class="btn ghost sm" data-act="editPiloto" data-id="${esc(p.id)}">Editar</button><button class="btn danger sm" data-act="delPiloto" data-id="${esc(p.id)}" aria-label="Excluir">🗑</button></div></div>`; }).join('')}</div>`;
+    }
+  }
+  if (S.admTab === 'corridas'){
+    const rs = S.corridas.slice().sort((a, b) => b.criadaEm - a.criadaEm).slice(0, 80);
+    const fin = S.corridas.filter(r => !ATIVOS.includes(r.status)).length;
+    const total = S.corridas.filter(r => r.status === 'concluida').reduce((s, r) => s + num(r.valor), 0);
+    h += `<div class="row between mb"><h3>Corridas</h3><button class="btn ghost sm" data-act="limpar" ${fin ? '' : 'disabled'}>Limpar finalizadas (${fin})</button></div>
+      <p class="small muted mb">Faturamento das corridas concluídas: <b style="color:var(--text)">${BRL(total)}</b></p>`;
+    if (!rs.length) h += `<div class="empty"><div class="big">🧾</div><b>Nenhuma corrida ainda</b><p class="small mt">As corridas pedidas pelos passageiros aparecem aqui em tempo real.</p></div>`;
+    else h += `<div class="list">${rs.map(r => { const [l, c] = STATUS[r.status] || [r.status, '']; return `<div class="card"><div class="row between"><span class="tag ${c}">${esc(l)}</span><span class="small muted">${ago(r.criadaEm)}</span></div>
+      <div class="small mt"><b>${esc(r.passageiro && r.passageiro.nome)}</b>${r.pilotoNome ? ` → 🏍️ ${esc(r.pilotoNome)}` : ''}${r.avaliacao ? ` · ${'⭐'.repeat(clamp(r.avaliacao|0, 1, 5))}` : ''}</div>${tripBox(r)}</div>`; }).join('')}</div>`;
+  }
+  patch($('#admBody'), h);
+}
+
+/* ---------- modais ---------- */
+function openModal(html, mount){ $('#modalCard').innerHTML = html; $('#modal').classList.remove('hidden'); mount && mount($('#modalCard')); }
+function closeModal(){ $('#modal').classList.add('hidden'); $('#modalCard').innerHTML = ''; }
+$('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+function confirmar(msg, okTxt = 'Excluir'){
+  return new Promise(res => {
+    openModal(`<h3>Tem certeza?</h3><p class="muted mt" style="font-size:14px">${msg}</p><div class="grid2 mt2"><button class="btn ghost" id="cNo">Voltar</button><button class="btn danger" id="cYes">${okTxt}</button></div>`, c => {
+      c.querySelector('#cNo').onclick = () => { closeModal(); res(false); };
+      c.querySelector('#cYes').onclick = () => { closeModal(); res(true); };
+    });
+  });
+}
+function empresaForm(id){
+  const e = id ? emp(id) : null;
+  const v = e || {nome:'', cnpj:'', telefone:'', cidade:'', responsavel:'', tarifaBase:5, porKm:2.5, minima:8, cor:EMP_CORES[S.empresas.length % EMP_CORES.length]};
+  openModal(`<h3>${e ? 'Editar empresa' : 'Nova empresa de mototáxi'}</h3>
+    <form id="fEmp" class="col mt">
+      <label class="f">Nome da empresa *<input class="input" name="nome" required maxlength="60" value="${esc(v.nome)}" placeholder="Ex.: Rápido Mototáxi"></label>
+      <div class="grid2"><label class="f">Telefone *<input class="input" name="telefone" required maxlength="30" inputmode="tel" value="${esc(v.telefone)}" placeholder="(11) 3333-0000"></label><label class="f">CNPJ<input class="input" name="cnpj" maxlength="20" value="${esc(v.cnpj)}" placeholder="00.000.000/0001-00"></label></div>
+      <div class="grid2"><label class="f">Cidade<input class="input" name="cidade" maxlength="40" value="${esc(v.cidade)}"></label><label class="f">Responsável<input class="input" name="responsavel" maxlength="50" value="${esc(v.responsavel)}"></label></div>
+      <div class="grid3"><label class="f">Bandeirada (R$)<input class="input" name="tarifaBase" inputmode="decimal" value="${esc(v.tarifaBase)}"></label><label class="f">Por km (R$)<input class="input" name="porKm" inputmode="decimal" value="${esc(v.porKm)}"></label><label class="f">Mínima (R$)<input class="input" name="minima" inputmode="decimal" value="${esc(v.minima)}"></label></div>
+      <div class="f" style="display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:700;color:var(--muted)">Cor da marca<div class="colors">${EMP_CORES.map(c => `<label><input type="radio" name="cor" value="${c}" ${c === v.cor ? 'checked' : ''}><span class="sw" style="background:${c};width:18px;height:18px"></span></label>`).join('')}</div></div>
+      <div class="grid2 mt"><button type="button" class="btn ghost" data-act="closeModal">Cancelar</button><button class="btn">Salvar</button></div>
+    </form>`, c => {
+      c.querySelector('#fEmp').addEventListener('submit', async ev => {
+        ev.preventDefault(); const f = new FormData(ev.target);
+        const d = {nome:f.get('nome').trim(), telefone:f.get('telefone').trim(), cnpj:f.get('cnpj').trim(), cidade:f.get('cidade').trim(), responsavel:f.get('responsavel').trim(),
+          tarifaBase:num(f.get('tarifaBase'), 5), porKm:num(f.get('porKm'), 2.5), minima:num(f.get('minima'), 0), cor:f.get('cor') || '#FFC400', criadaEm:e ? e.criadaEm || Date.now() : Date.now()};
+        if (!d.nome || !d.telefone){ toast('Preencha nome e telefone'); return; }
+        try{ await Store.set('empresas', e ? e.id : uid(), d); closeModal(); toast(e ? 'Empresa atualizada' : 'Empresa cadastrada! Agora cadastre os pilotos.'); }catch(err){}
+      });
+    });
+}
+function readPhoto(file){
+  return new Promise((res, rej) => {
+    const img = new Image(); const url = URL.createObjectURL(file);
+    img.onload = () => { const side = Math.min(img.width, img.height); const c = document.createElement('canvas'); c.width = c.height = Math.min(320, side);
+      c.getContext('2d').drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url); res(c.toDataURL('image/jpeg', 0.78)); };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('img')); }; img.src = url;
+  });
+}
+function pilotoForm(id, empId){
+  const p = id ? pil(id) : null;
+  const v = p || {empresaId:empId || S.filtroEmp || (S.empresas[0] && S.empresas[0].id) || '', nome:'', telefone:'', cnh:'', foto:'', moto:{marca:'Honda', modelo:'', ano:'', cor:'Preta', placa:''}};
+  const m = v.moto || {}; let foto = v.foto || '';
+  openModal(`<h3>${p ? 'Editar piloto' : 'Cadastrar mototaxista'}</h3>
+    <form id="fPil" class="col mt">
+      <label class="photoUp"><img id="phPrev" src="${safeImg(foto, v.nome || '?')}" alt=""><div><b>${foto ? 'Trocar foto do piloto' : 'Adicionar foto do piloto'}</b><div class="small muted">Toque para escolher uma foto (rosto bem visível)</div></div><input type="file" accept="image/*" id="phIn" hidden></label>
+      <label class="f">Empresa *<select class="input" name="empresaId" required>${S.empresas.map(e => `<option value="${esc(e.id)}" ${e.id === v.empresaId ? 'selected' : ''}>${esc(e.nome)}</option>`).join('')}</select></label>
+      <label class="f">Nome completo *<input class="input" name="nome" required maxlength="60" value="${esc(v.nome)}" placeholder="Ex.: Carlos da Silva"></label>
+      <div class="grid2"><label class="f">Telefone *<input class="input" name="telefone" required maxlength="30" inputmode="tel" value="${esc(v.telefone)}"></label><label class="f">Nº da CNH<input class="input" name="cnh" maxlength="20" value="${esc(v.cnh)}"></label></div>
+      <div class="hr" style="margin:4px 0"></div><b class="small" style="color:var(--brand)">🏍️ DADOS DA MOTO</b>
+      <div class="grid2"><label class="f">Marca *<select class="input" name="marca">${MARCAS.map(x => `<option ${x === m.marca ? 'selected' : ''}>${x}</option>`).join('')}</select></label><label class="f">Modelo *<input class="input" name="modelo" required maxlength="40" value="${esc(m.modelo)}" placeholder="Ex.: CG 160 Titan"></label></div>
+      <div class="grid2"><label class="f">Placa *<input class="input" name="placa" required maxlength="8" value="${esc(m.placa)}" placeholder="ABC1D23" style="text-transform:uppercase;letter-spacing:.1em;font-weight:700"></label><label class="f">Ano<input class="input" name="ano" inputmode="numeric" maxlength="4" value="${esc(m.ano)}" placeholder="2023"></label></div>
+      <div style="display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:700;color:var(--muted)">Cor da moto *<div class="colors">${MOTO_CORES.map(([n, c]) => `<label><input type="radio" name="cor" value="${n}" ${n === (m.cor || 'Preta') ? 'checked' : ''}><span class="sw" style="background:${c}"></span><em>${n}</em></label>`).join('')}</div></div>
+      <div class="grid2 mt"><button type="button" class="btn ghost" data-act="closeModal">Cancelar</button><button class="btn">Salvar piloto</button></div>
+    </form>`, c => {
+      c.querySelector('#phIn').addEventListener('change', async ev => {
+        const file = ev.target.files[0]; if (!file) return;
+        try{ foto = await readPhoto(file); c.querySelector('#phPrev').src = foto; }catch(e){ toast('Não consegui ler essa imagem'); }
+      });
+      c.querySelector('#fPil').addEventListener('submit', async ev => {
+        ev.preventDefault(); const f = new FormData(ev.target);
+        const placa = f.get('placa').trim().toUpperCase().replace(/\s/g, '');
+        if (!/^[A-Z]{3}-?\d[A-Z0-9]\d{2}$/.test(placa)){ toast('Placa inválida. Use ABC1234 ou ABC1D23'); return; }
+        const d = {empresaId:f.get('empresaId'), nome:f.get('nome').trim(), telefone:f.get('telefone').trim(), cnh:f.get('cnh').trim(), foto,
+          moto:{marca:f.get('marca'), modelo:f.get('modelo').trim(), ano:f.get('ano').trim(), cor:f.get('cor') || 'Preta', placa},
+          online:p ? !!p.online : false, criadoEm:p ? p.criadoEm || Date.now() : Date.now()};
+        if (!d.nome || !d.telefone || !d.moto.modelo || !d.empresaId){ toast('Preencha os campos obrigatórios'); return; }
+        if (!foto){ if (!(await new Promise(r => { toast('Sem foto — o passageiro verá as iniciais do nome.'); r(true); }))) return; }
+        try{ await Store.set('pilotos', p ? p.id : uid(), d); closeModal(); toast(p ? 'Piloto atualizado' : 'Piloto cadastrado! 🏍️'); }catch(err){}
+      });
+    });
+}
+
+
+async function seed(){
+  const e1 = uid(), e2 = uid();
+  await Store.set('empresas', e1, {nome:'Rápido Mototáxi', telefone:'(11) 3333-1000', cnpj:'12.345.678/0001-90', cidade:'São Paulo', responsavel:'João Pereira', tarifaBase:5, porKm:2.2, minima:7, cor:'#FFC400', criadaEm:Date.now()});
+  await Store.set('empresas', e2, {nome:'Zé Mototáxi & Entregas', telefone:'(11) 3444-2000', cnpj:'', cidade:'São Paulo', responsavel:'José Lima', tarifaBase:4.5, porKm:2.6, minima:8, cor:'#22c55e', criadaEm:Date.now()});
+  const c = pmap && pmap.ready ? pmap.center() : CFG.center;
+  const ps = [
+    [e1, 'Carlos Silva', '(11) 98888-1111', 'Honda', 'CG 160 Titan', '2023', 'Vermelha', 'FTR4E21', true, '#dc2626'],
+    [e1, 'Ana Souza', '(11) 97777-2222', 'Honda', 'Pop 110i', '2022', 'Branca', 'GHB2A09', false, '#8b5cf6'],
+    [e2, 'Marcos Oliveira', '(11) 96666-3333', 'Yamaha', 'Factor 150', '2024', 'Azul', 'QWE7B45', true, '#2563eb'],
+  ];
+  let i = 0;
+  for (const [empresaId, nome, telefone, marca, modelo, ano, cor, placa, online, bg] of ps)
+    await Store.set('pilotos', uid(), {empresaId, nome, telefone, cnh:'', foto:avatarFor(nome, bg), moto:{marca, modelo, ano, cor, placa}, online, pos:{...offsetPoint(c, 500 + 300 * i, i++ * 2.2), t:Date.now()}, criadoEm:Date.now()});
+  toast('Dados de exemplo criados');
+}
+
+/* ================= configuração ================= */
+function parseFb(txt){
+  txt = String(txt || '').trim(); if (!txt) return null;
+  const m = txt.match(/\{[\s\S]*\}/); if (!m) throw new Error('fb');
+  const json = m[0].replace(/([{,]\s*)([A-Za-z_]\w*)\s*:/g, '$1"$2":').replace(/'/g, '"').replace(/,\s*}/g, '}');
+  const o = JSON.parse(json); if (!o.apiKey || !o.projectId) throw new Error('fb'); return o;
+}
+function showSetup(first){
+  const inCode = !!CONFIG.GOOGLE_MAPS_API_KEY;
+  openModal(`<h3>⚙️ Configurar o MotoJá</h3>
+    <p class="muted small mt">Sem chave, o app usa o <b style="color:var(--text)">OpenStreetMap</b> (grátis). Com uma chave do Google Maps (pode ser a <b style="color:var(--text)">Maps Demo Key</b> gratuita), ele passa a usar o Google Maps.</p>
+    ${inCode ? `<p class="note mt">As chaves estão definidas no código (bloco <b>CONFIG</b> no topo do arquivo). Para mudar, edite o arquivo.</p>` : `
+    <form id="fCfg" class="col mt">
+      <label class="f">Chave do Google Maps (opcional)<input class="input" name="key" value="${esc(CFG.key)}" placeholder="AIza..." autocomplete="off"></label>
+      <label class="f">Map ID (opcional)<input class="input" name="mapId" value="${esc(LS.get('mtc_mapid', ''))}" placeholder="DEMO_MAP_ID"></label>
+      <label class="f">Configuração do Firebase (opcional — para compartilhar entre celulares)<textarea class="input" name="fb" rows="6" placeholder='{ apiKey: "...", authDomain: "...", projectId: "...", appId: "..." }'>${CFG.firebase ? esc(JSON.stringify(CFG.firebase, null, 1)) : ''}</textarea></label>
+      <p class="small muted">Sem Firebase, os dados ficam salvos só neste aparelho. Essas configurações ficam salvas apenas neste navegador; para valer em todos os celulares, coloque-as no bloco CONFIG do arquivo.</p>
+      <div class="grid2 mt">${first ? '<span></span>' : '<button type="button" class="btn ghost" data-act="closeModal">Cancelar</button>'}<button class="btn">Salvar e abrir</button></div>
+    </form>`}`, c => {
+      const f = c.querySelector('#fCfg'); if (!f) return;
+      f.addEventListener('submit', ev => {
+        ev.preventDefault(); const d = new FormData(f);
+        let fb = null; try{ fb = parseFb(d.get('fb')); }catch(e){ toast('Configuração do Firebase inválida — confira o texto colado.'); return; }
+        LS.set('mtc_key', d.get('key').trim()); LS.set('mtc_mapid', d.get('mapId').trim()); LS.set('mtc_fb', fb);
+        location.reload();
+      });
+    });
+}
+
+/* ================= eventos ================= */
+const ACT = {
+  nav:d => go(d.v),
+  setup:() => showSetup(false),
+  gps:() => usarGps(),
+  sug:d => pickSug(+d.i),
+  field:d => { if (myRide()) return; S.field = d.f; updateSearchCard(); if (d.f === 'destino'){ const ac = $('#placeAC'); ac && ac.focus && ac.focus(); } },
+  clear:(d, el, e) => { e.stopPropagation(); S[d.f] = null; S.rota = null; S.field = d.f; updateSearchCard(); renderPass(); },
+  pickEmp:d => { S.empresaSel = d.id; renderPass(); },
+  pay:d => { S.pagamento = d.v; renderPass(); },
+  pedir:() => pedir(),
+  cancelar:async () => { const r = myRide(); if (!r) return; if (await confirmar('Deseja cancelar esta corrida?', 'Cancelar corrida')) Store.update('corridas', r.id, {status:'cancelada', canceladaPor:'passageiro', canceladaEm:Date.now()}); },
+  simular:() => simular(),
+  rate:d => { const r = myRide(); r && Store.update('corridas', r.id, {avaliacao:+d.n}); },
+  nova:() => { S.minha = null; S.minhaLocal = null; LS.set('mtu_minha', null); S.origem = null; S.destino = null; S.rota = null; S.field = 'origem'; renderPass(); },
+  sheetToggle:() => { S.sheetMin = !S.sheetMin; $('#sheet').classList.toggle('min', S.sheetMin); },
+  toggleOnline:() => { const me = pil(S.meuPiloto); if (!me) return; if (me.online && myActive()){ toast('Finalize a corrida antes de ficar offline.'); return; } Store.update('pilotos', me.id, {online:!me.online}); },
+  aceitar:d => aceitar(d.id),
+  embarcou:() => { const a = myActive(); a && Store.update('corridas', a.id, {status:'em_andamento', iniciadaEm:Date.now()}); },
+  finalizar:() => { const a = myActive(); a && Store.update('corridas', a.id, {status:'concluida', concluidaEm:Date.now()}).then(() => toast('Corrida finalizada! 💰')); },
+  desistir:async () => { const a = myActive(); if (a && await confirmar('A corrida volta para a fila de pedidos da empresa.', 'Desistir')) Store.update('corridas', a.id, {status:'procurando', pilotoId:null, pilotoNome:null, aceitaEm:null, inicio:null, rotaBusca:null, posPiloto:null}); },
+  admTab:d => { S.admTab = d.v; renderAdmin(); },
+  verPilotos:d => { S.filtroEmp = d.emp; S.admTab = 'pilotos'; renderAdmin(); },
+  novaEmpresa:() => empresaForm(),
+  editEmpresa:d => empresaForm(d.id),
+  delEmpresa:async d => { const e = emp(d.id); if (!e) return; const ps = S.pilotos.filter(p => p.empresaId === e.id);
+    if (await confirmar(`Excluir <b>${esc(e.nome)}</b>${ps.length ? ` e seus ${ps.length} piloto(s)` : ''}? Isso não pode ser desfeito.`)){ for (const p of ps) await Store.del('pilotos', p.id); await Store.del('empresas', e.id); toast('Empresa excluída'); } },
+  novoPiloto:d => { if (!S.empresas.length){ toast('Cadastre uma empresa primeiro'); return; } pilotoForm(null, d.emp); },
+  editPiloto:d => pilotoForm(d.id),
+  delPiloto:async d => { const p = pil(d.id); if (p && await confirmar(`Excluir o piloto <b>${esc(p.nome)}</b>?`)){ await Store.del('pilotos', p.id); toast('Piloto excluído'); } },
+  limpar:async () => { const fin = S.corridas.filter(r => !ATIVOS.includes(r.status)); if (await confirmar(`Remover ${fin.length} corrida(s) concluídas/canceladas do histórico?`, 'Limpar')){ for (const r of fin) await Store.del('corridas', r.id); toast('Histórico limpo'); } },
+  seed:() => seed(),
+  closeModal:() => closeModal(),
+};
+document.addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (!b) return; const f = ACT[b.dataset.act]; if (f) f(b.dataset, b, e); });
+document.addEventListener('input', e => {
+  if (e.target.id === 'pNome'){ S.pNome = e.target.value; LS.set('mtu_nome', S.pNome); }
+  if (e.target.id === 'pTel'){ S.pTel = e.target.value; LS.set('mtu_tel', S.pTel); }
+});
+document.addEventListener('change', e => {
+  if (e.target.id === 'selPiloto'){ S.meuPiloto = e.target.value; LS.set('mtu_piloto', S.meuPiloto); renderPiloto(); renderPilotCount(); }
+  if (e.target.id === 'filtroEmp'){ S.filtroEmp = e.target.value; renderAdmin(); }
+});
+
+function go(v){
+  if (!['passageiro','piloto','empresas'].includes(v)) v = 'passageiro';
+  S.view = v;
+  document.querySelectorAll('.view').forEach(x => x.classList.toggle('active', x.id === 'view-' + v));
+  document.querySelectorAll('nav.bottom button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  if (location.hash !== '#' + v){ try{ history.replaceState(null, '', '#' + v); }catch(e){} }
+  renderAll();
+}
+window.addEventListener('hashchange', () => { const v = location.hash.slice(1); if (v && v !== S.view) go(v); });
+function renderAll(){
+  if (S.view === 'passageiro') renderPass();
+  if (S.view === 'piloto') renderPiloto(); else pilotGps();
+  if (S.view === 'empresas') renderAdmin();
+  renderPilotCount();
+}
+
+/* ---------- animação da moto ---------- */
+let lastT = 0;
+function tick(t){
+  requestAnimationFrame(tick);
+  if (t - lastT < 250) return; lastT = t;
+  if (S.view === 'passageiro' && pmap && pmap.ready){
+    const r = myRide(); const m = r && motoState(r);
+    if (m){
+      pmap.marker('moto', m.pos, MK.moto(motoCor(r)), 5);
+      const el = $('#etaTxt');
+      if (el){ const txt = r.status === 'aceita' ? (m.prog >= 1 ? 'Seu piloto chegou! 🎉' : `Chega em ${fmtRem(m.rem, m.sp)}`) : (m.prog >= 1 ? 'Chegando ao destino…' : `Destino em ${fmtRem(m.rem, m.sp)}`); if (el.textContent !== txt) el.textContent = txt; }
+      const gt = $('#gpsTag'); if (gt){ const tx = m.real ? '📡 GPS ao vivo' : '🕒 posição estimada'; if (gt.textContent !== tx) gt.textContent = tx; }
+      if (r.demo && m.prog >= 1 && S.advancing !== r.id + r.status){
+        S.advancing = r.id + r.status;
+        setTimeout(() => { const c = myRide(); if (!c || c.id !== r.id || c.status !== r.status) return;
+          Store.update('corridas', r.id, r.status === 'aceita' ? {status:'em_andamento', iniciadaEm:Date.now()} : {status:'concluida', concluidaEm:Date.now()}).catch(() => {}); }, r.status === 'aceita' ? 1800 : 1200);
+      }
+    } else pmap.marker('moto', null);
+  }
+  if (S.view === 'piloto' && pilotMap && pilotMap.ready){
+    const a = myActive(); const m = a && motoState(a);
+    const pos = S.myPos && a && !a.demo ? S.myPos : m && m.pos;
+    pilotMap.marker('moto', a ? pos : null, MK.moto(a ? motoCor(a) : '#FFC400'), 5);
+    const el = $('#pEtaTxt');
+    if (el && m){ const txt = a.status === 'aceita' ? (m.prog >= 1 ? 'Você chegou ao passageiro 📍' : `Passageiro a ${fmtRem(m.rem, m.sp)}`) : (m.prog >= 1 ? 'Chegou ao destino 🏁' : `Destino a ${fmtRem(m.rem, m.sp)}`); if (el.textContent !== txt) el.textContent = txt; }
+  }
+}
+
+/* ---------- início ---------- */
+let lastRideKey = '';
+(async function start(){
+  if (MODE === 'google') loadGoogle(CFG.key);
+  await Store.init();
+  setSync('wait');
+  pmap = makeMap($('#passMap'), {onTap:onPassTap});
+  try{ await pmap.init(LS.get('mtu_center', null) || CFG.center); }
+  catch(e){ console.error(e); $('#splash').innerHTML = `<div class="pad" style="text-align:center"><div style="font-size:40px">🗺️</div><h3>Não consegui carregar o Google Maps</h3><p class="muted small mt">Verifique sua conexão e a chave da API.</p><button class="btn mt" data-act="setup">Configurar chave</button></div>`; return; }
+  pmap.onIdle(() => { const c = pmap.center(); c && LS.set('mtu_center', c); });
+  setupAutocomplete();
+  ['empresas','pilotos','corridas'].forEach(c => Store.subscribe(c, list => {
+    S[c] = list; S.loaded[c] = true;
+    renderAll();
+    if (c === 'corridas'){
+      const r = myRide(); const key = r ? r.id + r.status : '';
+      if (key !== lastRideKey){ lastRideKey = key;
+        if (r && (r.status === 'aceita' || r.status === 'em_andamento')){ S.sheetMin = false; renderPass();
+          setTimeout(() => pmap.fit(r.status === 'aceita' ? [...ridePath(r, 'rotaBusca'), r.inicio, r.origem, r.destino] : [...ridePath(r, 'rota'), r.origem, r.destino], passPad()), 50); }
+        if (S.view === 'piloto') fitPilot();
+      }
+    }
+  }));
+  $('#splash').remove();
+  go(location.hash.slice(1) || 'passageiro');
+  requestAnimationFrame(tick);
+  try{ const st = navigator.permissions && await navigator.permissions.query({name:'geolocation'});
+    if (st && st.state === 'granted'){ const p = await getGps(); if (p && !S.origem && !myRide()){ S.gpsPass = p; pmap.panTo(p); drawPass(); } } }catch(e){}
+})();
+
+</script>
+</body>
+</html>
