@@ -276,6 +276,8 @@ a.btn{text-decoration:none}
   /* piloto: duas colunas */
   #view-piloto.active{display:grid;grid-template-columns:minmax(360px,440px) minmax(0,1fr);grid-template-rows:auto 1fr;align-content:start;column-gap:24px;padding:24px 28px;max-width:1280px;margin:0 auto}
   #pilotTop{grid-column:1;grid-row:1/3;padding:0!important}
+  #view-piloto.active.aba-extra{display:block;max-width:900px}
+  #view-piloto.aba-extra #pilotTop{padding:0!important}
   #pilotMapWrap{grid-column:2;grid-row:1;height:380px;margin:0!important}
   #pilotBottom{grid-column:2;grid-row:2;padding:0 0 24px!important}
   #pilotMapWrap[style*="none"] + #pilotBottom{grid-row:1/3}
@@ -1058,16 +1060,54 @@ async function ensurePilotMap(act){
   await pilotMapInit;
 }
 function fitPilot(){ const a = myActive(); if (!a || !pilotMap || !pilotMap.ready) return; pilotMap.fit(a.status === 'aceita' ? [...ridePath(a, 'rotaBusca'), a.inicio, a.origem, a.destino] : [...ridePath(a, 'rota'), a.origem, a.destino], 40); }
+function pilotoAbas(){
+  const abas = [['painel', 'Painel'], ['corridas', 'Corridas'], ['empresa', 'Minha empresa']];
+  return `<div class="row mb" style="gap:6px;overflow-x:auto">${abas.map(([k, l]) => `<button class="chip ${S.pAba === k ? 'on' : ''}" data-act="pAba" data-v="${k}">${l}</button>`).join('')}</div>`;
+}
+function pilotoCorridasHtml(me){
+  const minhas = S.corridas.filter(r => r.pilotoId === me.id).sort((a, b) => (b.concluidaEm || b.aceitaEm || b.criadaEm) - (a.concluidaEm || a.aceitaEm || a.criadaEm));
+  const fin = minhas.filter(r => r.status === 'concluida');
+  const soma = fin.reduce((s, r) => s + num(r.valor), 0);
+  let h = `<div class="row between mb"><h3>Minhas corridas</h3><span class="tag on">${fin.length} concluída${fin.length === 1 ? '' : 's'} · ${BRL(soma)}</span></div>`;
+  if (!minhas.length) return h + `<div class="empty"><div class="big">🧾</div><b>Nenhuma corrida ainda</b><p class="small mt">As corridas que você aceitar aparecem aqui.</p></div>`;
+  return h + `<div class="list">${minhas.slice(0, 60).map(r => { const [l, c] = STATUS[r.status] || [r.status, '']; return `<div class="card"><div class="row between"><span class="tag ${c}">${esc(l)}</span><span class="small muted">${new Date(r.concluidaEm || r.aceitaEm || r.criadaEm).toLocaleString('pt-BR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'})}</span></div>
+    <div class="small mt"><b>${esc(r.passageiro && r.passageiro.nome)}</b>${r.avaliacao ? ' · ' + '⭐'.repeat(clamp(r.avaliacao|0, 1, 5)) : ''}</div>${tripBox(r)}</div>`; }).join('')}</div>`;
+}
+function pilotoEmpresaHtml(me){
+  const e = emp(me.empresaId);
+  if (!e) return `<div class="empty"><div class="big">🏢</div><b>Empresa não encontrada</b></div>`;
+  const colegas = S.pilotos.filter(p => p.empresaId === e.id);
+  const fone = String(e.telefone || '').replace(/[^\d+]/g, '');
+  return bannerClientes(e).replace('Mande este link para os passageiros.', 'Mande este link para os seus passageiros.') + `<div class="card">
+    <div class="row" style="gap:12px"><div class="elogo" style="background:${safeColor(e.cor)};width:52px;height:52px">${esc(initials(e.nome))}</div><div><h3>${esc(e.nome)}</h3><div class="small muted">${esc(docTexto(e))}</div></div></div>
+    <dl class="kv mt"><dt>Telefone</dt><dd>${fone ? `<a href="tel:${esc(fone)}" style="color:var(--cana)">${esc(e.telefone)}</a>` : '—'}</dd><dt>Cidade</dt><dd>${esc(e.cidade || '—')}</dd>${e.responsavel ? `<dt>Responsável</dt><dd>${esc(e.responsavel)}</dd>` : ''}
+      <dt>Distribuição</dt><dd>${e.distribuicao === 'vez' ? `Por vez — você tem ${num(e.tempoOferta, 30)} s para aceitar` : 'Por escolha — o primeiro piloto que aceitar leva'}</dd></dl>
+    <div class="hr"></div><h3>Tarifas</h3>
+    <div class="dash mt" style="grid-template-columns:repeat(3,1fr)"><div class="stat"><b>${BRL(e.tarifaBase)}</b><span>bandeirada</span></div><div class="stat"><b>${BRL(e.porKm)}</b><span>por km</span></div><div class="stat"><b>${BRL(e.minima)}</b><span>mínima</span></div></div>
+    <div class="hr"></div><h3>Pilotos da empresa (${colegas.length})</h3>
+    <div class="list mt">${colegas.map(p => `<div class="row" style="gap:10px"><img class="avatar" style="width:38px;height:38px" src="${safeImg(p.foto, p.nome)}" alt=""><div style="flex:1;min-width:0"><b class="small">${esc(p.nome)}${p.id === me.id ? ' (você)' : ''}</b><div class="small muted">${esc([p.moto && p.moto.modelo, p.moto && p.moto.placa].filter(Boolean).join(' · '))}</div></div><span class="tag ${p.online ? 'on' : ''}">${p.online ? 'online' : 'offline'}</span></div>`).join('')}</div>
+    <p class="small muted mt">Só a empresa e o administrador podem alterar estes dados.</p></div>`;
+}
 function renderPiloto(){
   const me = pil(S.meuPiloto);
   if (S.meuPiloto && !me && S.loaded.pilotos){ S.meuPiloto = ''; LS.set('mtu_piloto', ''); }
   let top = '';
   const logado = S.role === 'piloto';
+  if (logado && me && myActive()) S.pAba = 'painel';
+  if (!S.pAba) S.pAba = 'painel';
+  $('#view-piloto').classList.toggle('aba-extra', !!(logado && me && S.pAba !== 'painel'));
+  if (logado && me && S.pAba !== 'painel'){
+    patch($('#pilotTop'), `<h2 class="mb">${S.pAba === 'corridas' ? 'Corridas' : 'Minha empresa'}</h2>` + pilotoAbas() + (S.pAba === 'corridas' ? pilotoCorridasHtml(me) : pilotoEmpresaHtml(me)));
+    $('#pilotMapWrap').style.display = 'none';
+    patch($('#pilotBottom'), '');
+    pilotGps();
+    return;
+  }
   if (!S.pilotos.length && !logado){
     top = `<div class="empty"><div class="big">🏍️</div><b>Nenhum piloto cadastrado</b><p class="small mt">O master cadastra os mototaxistas no painel <b>Master → Pilotos</b>.</p><button class="btn mt" data-act="nav" data-v="master">Cadastrar pilotos</button></div>`;
   } else {
     const groups = S.empresas.map(e => ({e, ps:S.pilotos.filter(p => p.empresaId === e.id)})).filter(g => g.ps.length);
-    top = logado ? `<h2>Painel do piloto</h2>` : `<label class="f">Entrar como piloto<select class="input" id="selPiloto"><option value="">Selecione seu nome…</option>${groups.map(g => `<optgroup label="${esc(g.e.nome)}">${g.ps.map(p => `<option value="${esc(p.id)}" ${p.id === S.meuPiloto ? 'selected' : ''}>${esc(p.nome)} — ${esc(p.moto && p.moto.placa || '')}</option>`).join('')}</optgroup>`).join('')}</select></label>`;
+    top = logado ? `<h2 class="mb">Painel do piloto</h2>${pilotoAbas()}` : `<label class="f">Entrar como piloto<select class="input" id="selPiloto"><option value="">Selecione seu nome…</option>${groups.map(g => `<optgroup label="${esc(g.e.nome)}">${g.ps.map(p => `<option value="${esc(p.id)}" ${p.id === S.meuPiloto ? 'selected' : ''}>${esc(p.nome)} — ${esc(p.moto && p.moto.placa || '')}</option>`).join('')}</optgroup>`).join('')}</select></label>`;
     if (me){
       const e = emp(me.empresaId); const m = me.moto || {};
       const hoje = new Date().toDateString();
@@ -1111,7 +1151,7 @@ function renderPiloto(){
   } else if (logado) b = `<div class="empty"><div class="big">🔎</div><b>Seu cadastro de piloto não foi encontrado</b><p class="small mt">Fale com o administrador do MotoJá.</p></div>`;
   else if (S.pilotos.length) b = `<p class="note">Selecione seu nome acima para ficar online e receber corridas. Dica: envie o link do app com <b>#piloto</b> no final para os seus mototaxistas.</p>`;
   if (me && (logado || S.role === 'local')) b += alertasCard(me);
-  if (logado && me && !act){
+  if (!logado && S.role === 'local' && me && !act){
     const hist = S.corridas.filter(r => r.pilotoId === me.id && (r.status === 'concluida' || r.status === 'cancelada')).sort((a, b) => (b.concluidaEm || b.criadaEm) - (a.concluidaEm || a.criadaEm)).slice(0, 15);
     b += `<h3 class="mt2 mb">Minhas últimas corridas</h3>${hist.length ? `<div class="list">${hist.map(r => { const [l, c] = STATUS[r.status] || [r.status, '']; return `<div class="card" style="padding:12px"><div class="row between"><span class="tag ${c}">${esc(l)}</span><span class="small muted">${new Date(r.concluidaEm || r.criadaEm).toLocaleString('pt-BR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'})}</span></div><div class="small mt"><b>${esc(r.passageiro && r.passageiro.nome)}</b>${r.avaliacao ? ' · ' + '⭐'.repeat(clamp(r.avaliacao|0, 1, 5)) : ''}</div>${tripBox(r)}</div>`; }).join('')}</div>` : `<div class="empty small">Suas corridas finalizadas aparecem aqui.</div>`}`;
   }
@@ -1204,26 +1244,24 @@ function renderAdmin(){
         <div class="row wrap mt" style="gap:6px"><span class="tag">Bandeirada ${BRL(e.tarifaBase)}</span><span class="tag">${BRL(e.porKm)}/km</span><span class="tag">Mínima ${BRL(e.minima)}</span><span class="tag y">${e.distribuicao === 'vez' ? `🔁 Por vez (${num(e.tempoOferta, 30)}s)` : '🙋 Por escolha'}</span><span class="tag ${on ? 'on' : ''}">🏍️ ${ps.length} piloto${ps.length === 1 ? '' : 's'} · ${on} online</span></div>
         ${docTexto(e) || e.responsavel ? `<div class="small muted mt">${esc([docTexto(e), e.responsavel && 'Resp.: ' + e.responsavel].filter(Boolean).join(' · '))}</div>` : ''}
         ${ehEmpresa() ? '' : `<div class="small mt" style="color:${e.uid ? 'var(--ok-ink)' : 'var(--warn-ink)'}">${e.uid ? `🔑 Acesso: ${esc(e.emailAcesso || '')}` : '⚠ Sem acesso ao app — edite para criar e-mail e senha'}</div>`}
-        ${ehEmpresa() ? `<div class="kv mt"><dt>Telefone</dt><dd>${esc(e.telefone || '—')}</dd><dt>Cidade</dt><dd>${esc(e.cidade || '—')}</dd><dt>Distribuição</dt><dd>${e.distribuicao === 'vez' ? `Por vez — ${num(e.tempoOferta, 30)} s para aceitar` : 'Por escolha — o primeiro piloto que aceitar leva'}</dd></div>
-        <p class="small muted mt">Para alterar dados, tarifas ou pilotos, fale com o administrador do MotoJá.</p>` : ''}
-        <div class="row mt" style="gap:8px">${ehEmpresa() ? '' : `<button class="btn sm" data-act="novoPiloto" data-emp="${esc(e.id)}">＋ Piloto</button>`}<button class="btn ghost sm" data-act="verPilotos" data-emp="${esc(e.id)}">Ver pilotos</button><span style="flex:1"></span>${ehEmpresa() ? '' : `<button class="btn ghost sm" data-act="editEmpresa" data-id="${esc(e.id)}">Editar</button>`}${ehEmpresa() ? '' : `<button class="btn danger sm" data-act="delEmpresa" data-id="${esc(e.id)}" aria-label="Excluir">🗑</button>`}</div></div>`; }).join('')}</div>`;
+        <div class="row mt" style="gap:8px"><button class="btn sm" data-act="novoPiloto" data-emp="${esc(e.id)}">＋ Piloto</button><button class="btn ghost sm" data-act="verPilotos" data-emp="${esc(e.id)}">Ver pilotos</button><span style="flex:1"></span><button class="btn ghost sm" data-act="editEmpresa" data-id="${esc(e.id)}">Editar</button>${ehEmpresa() ? '' : `<button class="btn danger sm" data-act="delEmpresa" data-id="${esc(e.id)}" aria-label="Excluir">🗑</button>`}</div></div>`; }).join('')}</div>`;
   }
   if (S.admTab === 'pilotos'){
     if (S.filtroEmp && !emp(S.filtroEmp)) S.filtroEmp = '';
     if (ehEmpresa()) h += bannerClientes(emp(S.minhaEmpresa));
     else h += `<div class="note mb row between" style="gap:10px"><span>Link do app do piloto: <b style="word-break:break-all">${esc(LINK_PILOTO)}</b></span><button class="btn ghost sm" data-act="copiarLinkPiloto">Copiar</button></div>`;
-    h += `<div class="row between mb"><h3>${ehEmpresa() ? 'Pilotos da empresa' : 'Mototaxistas'}</h3>${ehEmpresa() ? `<span class="tag">${PIL.length}</span>` : `<button class="btn sm" data-act="novoPiloto" ${EMP.length ? '' : 'disabled'}>＋ Novo piloto</button>`}</div>`;
+    h += `<div class="row between mb"><h3>${ehEmpresa() ? 'Pilotos da empresa' : 'Mototaxistas'}</h3><button class="btn sm" data-act="novoPiloto" ${EMP.length ? '' : 'disabled'}>＋ Novo piloto</button></div>`;
     if (!EMP.length) h += `<div class="empty"><div class="big">🏢</div><b>Cadastre uma empresa primeiro</b><p class="small mt">Todo piloto pertence a uma empresa de mototáxi.</p><button class="btn mt" data-act="admTab" data-v="empresas">Ir para Empresas</button></div>`;
     else {
       if (!ehEmpresa()) h += `<select class="input mb" id="filtroEmp"><option value="">Todas as empresas</option>${EMP.map(e => `<option value="${esc(e.id)}" ${S.filtroEmp === e.id ? 'selected' : ''}>${esc(e.nome)}</option>`).join('')}</select>`;
       const ps = PIL.filter(p => !S.filtroEmp || p.empresaId === S.filtroEmp).sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
-      if (!ps.length) h += `<div class="empty"><div class="big">🏍️</div><b>Nenhum piloto aqui</b>${ehEmpresa() ? '<p class="small mt">Os pilotos da sua empresa são cadastrados pelo administrador do MotoJá.</p>' : `<p class="small mt">Cadastre o mototaxista com foto, nome e os dados da moto.</p><button class="btn mt" data-act="novoPiloto" data-emp="${esc(S.filtroEmp)}">Cadastrar piloto</button>`}</div>`;
+      if (!ps.length) h += `<div class="empty"><div class="big">🏍️</div><b>Nenhum piloto aqui</b><p class="small mt">Cadastre o mototaxista com foto, nome e os dados da moto.</p><button class="btn mt" data-act="novoPiloto" data-emp="${esc(S.filtroEmp)}">Cadastrar piloto</button></div>`;
       else h += `<div class="list">${ps.map(p => { const m = p.moto || {}; const e = emp(p.empresaId); const busy = ocupado(p.id);
         return `<div class="card"><div class="driver"><img class="avatar" src="${safeImg(p.foto, p.nome)}" alt=""><div style="flex:1;min-width:0"><div class="row between"><b>${esc(p.nome)}</b><span class="tag ${busy ? 'b' : p.online ? 'on' : ''}">${busy ? 'em corrida' : p.online ? '● online' : 'offline'}</span></div>
           <div class="small muted">${esc(e ? e.nome : '—')}${p.telefone ? ' · ' + esc(p.telefone) : ''}</div>
-          <div class="small mt" style="color:${p.email ? (p.uid ? 'var(--ok-ink)' : 'var(--muted)') : 'var(--warn-ink)'}">${p.email ? `🔑 ${esc(p.email)} · ${p.uid ? 'já entrou no app' : 'ainda não entrou'}` : (ehEmpresa() ? '⚠ ainda sem e-mail de login' : '⚠ sem e-mail de login — edite para o piloto poder entrar')}</div>
+          <div class="small mt" style="color:${p.email ? (p.uid ? 'var(--ok-ink)' : 'var(--muted)') : 'var(--warn-ink)'}">${p.email ? `🔑 ${esc(p.email)} · ${p.uid ? 'já entrou no app' : 'ainda não entrou'}` : '⚠ sem e-mail de login — edite para o piloto poder entrar'}</div>
           <div class="row mt small" style="gap:8px;flex-wrap:wrap"><span class="sw" style="background:${corHex(m.cor)}"></span><span>${esc([m.marca, m.modelo, m.ano].filter(Boolean).join(' '))} · ${esc(m.cor || '')}</span><span class="plate" style="font-size:11px;padding:2px 6px;border-top-width:3px">${esc(m.placa || '')}</span></div></div></div>
-          ${ehEmpresa() ? '' : `<div class="row end mt" style="gap:8px"><button class="btn sm" data-act="convitePiloto" data-id="${esc(p.id)}" ${p.email ? '' : 'disabled'}>Convidar</button><span style="flex:1"></span><button class="btn ghost sm" data-act="editPiloto" data-id="${esc(p.id)}">Editar</button><button class="btn danger sm" data-act="delPiloto" data-id="${esc(p.id)}" aria-label="Excluir">🗑</button></div>`}</div>`; }).join('')}</div>`;
+          <div class="row end mt" style="gap:8px"><button class="btn sm" data-act="convitePiloto" data-id="${esc(p.id)}" ${p.email ? '' : 'disabled'}>Convidar</button><span style="flex:1"></span><button class="btn ghost sm" data-act="editPiloto" data-id="${esc(p.id)}">Editar</button><button class="btn danger sm" data-act="delPiloto" data-id="${esc(p.id)}" aria-label="Excluir">🗑</button></div></div>`; }).join('')}</div>`;
     }
   }
   if (S.admTab === 'corridas'){
@@ -1461,6 +1499,7 @@ function checarAlarme(){
   novas.forEach(r => _vistas.add(r.id + ':' + (r.ofertaIdx == null ? -1 : r.ofertaIdx)));
   if (novas.length){
     const r = novas[0];
+    if (S.pAba !== 'painel'){ S.pAba = 'painel'; if (S.view === 'piloto') setTimeout(renderAll, 0); }
     tocarAlarme(r.modo === 'vez' ? num(r.tempoOferta, 30) * 1000 : 45000);
     notificarSistema('🏍️ Nova corrida — MotoJá', `${r.origem.end} → ${r.destino.end} · ${BRL(r.valor)}`, 'corrida-' + r.id);
   }
@@ -1688,6 +1727,7 @@ function showSetup(first){
 
 /* ================= eventos ================= */
 const ACT = {
+  pAba:d => { S.pAba = d.v; renderAll(); },
   authPerfil:d => { S.authPerfil = d.v; S.authErr = ''; if (d.v === 'passageiro' && S.role === 'cliente') S.role = undefined; renderAll(); },
   verSenha:(d, el) => { const i = el.parentElement.querySelector('input'); const ver = i.type === 'password'; i.type = ver ? 'text' : 'password'; el.textContent = ver ? 'Ocultar' : 'Mostrar'; },
   resetSenhaEmpresa:async d => { const e = emp(d.id); if (!e || !e.emailAcesso) return; try{ await Store.authMod.sendPasswordResetEmail(Store.auth, e.emailAcesso); toast(`Link enviado para ${e.emailAcesso}.`); }catch(err){ toast(authMsg(err)); } },
@@ -1740,11 +1780,11 @@ const ACT = {
   admTab:d => { S.admTab = d.v; renderAdmin(); },
   verPilotos:d => { S.filtroEmp = d.emp; S.admTab = 'pilotos'; renderAdmin(); },
   novaEmpresa:() => empresaForm(),
-  editEmpresa:d => { if (!ehEmpresa()) empresaForm(d.id); },
+  editEmpresa:d => empresaForm(d.id),
   delEmpresa:async d => { const e = emp(d.id); if (!e) return; const ps = S.pilotos.filter(p => p.empresaId === e.id);
     if (await confirmar(`Excluir <b>${esc(e.nome)}</b>${ps.length ? ` e seus ${ps.length} piloto(s)` : ''}? Isso não pode ser desfeito.`)){ for (const p of ps) await Store.del('pilotos', p.id); if (e.uid){ try{ await Store.del('empresaUsers', e.uid); }catch(err){} } await Store.del('empresas', e.id); toast('Empresa excluída'); } },
-  novoPiloto:d => { if (ehEmpresa()) return; if (!escopoEmpresas().length){ toast('Cadastre uma empresa primeiro'); return; } pilotoForm(null, d.emp); },
-  editPiloto:d => { if (!ehEmpresa()) pilotoForm(d.id); },
+  novoPiloto:d => { if (!escopoEmpresas().length){ toast('Cadastre uma empresa primeiro'); return; } pilotoForm(null, d.emp); },
+  editPiloto:d => pilotoForm(d.id),
   delPiloto:async d => { const p = pil(d.id); if (p && await confirmar(`Excluir o piloto <b>${esc(p.nome)}</b>?`)){ await Store.del('pilotos', p.id); toast('Piloto excluído'); } },
   limpar:async () => { const fin = S.corridas.filter(r => !ATIVOS.includes(r.status)); if (await confirmar(`Remover ${fin.length} corrida(s) concluídas/canceladas do histórico?`, 'Limpar')){ for (const r of fin) await Store.del('corridas', r.id); toast('Histórico limpo'); } },
   seed:() => seed(),
@@ -1796,6 +1836,7 @@ function applyRole(){
   if (S._unsubCorr){ S._unsubCorr(); S._unsubCorr = null; }
   if (S._unsubClis){ S._unsubClis(); S._unsubClis = null; }
   S.corridas = []; S.loaded.corridas = false; S.clientes = [];
+  ['#admBody', '#admTabs', '#pilotTop', '#pilotBottom'].forEach(s => { const el = $(s); if (el){ el.innerHTML = ''; el._html = ''; } }); S.pAba = 'painel';
   if (role === 'piloto-verificar' && !S._verifSent){ S._verifSent = true; Store.authMod.sendEmailVerification(S.user).catch(() => {}); }
   if (role === 'piloto'){
     const p = pilotoDoUsuario(); S.meuPiloto = p.id;
