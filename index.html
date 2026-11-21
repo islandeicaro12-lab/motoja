@@ -240,7 +240,11 @@ const CONFIG = {
   // Map ID (Google Cloud > Map Management). 'DEMO_MAP_ID' funciona para testes.
   GOOGLE_MAP_ID: 'DEMO_MAP_ID',
   // Centro inicial do mapa (se o GPS não for liberado). Padrão: São Paulo
-  CENTRO_INICIAL: { lat: -23.5505, lng: -46.6333 },
+  CENTRO_INICIAL: { lat: -7.7417, lng: -35.2278 },
+  // Área usada enquanto o master não cadastrar cidades no painel (aba Cidades)
+  CIDADE_PADRAO: { id: 'nazare-da-mata-pe', nome: 'Nazaré da Mata', uf: 'PE', lat: -7.7417, lng: -35.2278, raioKm: 12, ativa: true },
+  // Sugestões de cidades da região para o master adicionar com um toque
+  SUGESTOES_REGIAO: ['Tracunhaém', 'Buenos Aires', 'Vicência', 'Carpina', 'Aliança', 'Lagoa do Carro', 'Lagoa de Itaenga', 'Paudalho', 'Timbaúba', 'Condado', 'Itaquitinga', 'Goiana', 'Glória do Goitá', 'Macaparana'],
   // Configuração do Firebase (Firestore) para compartilhar dados entre celulares.
   // Deixe null para salvar só no aparelho (bom para testar).
   // E-mails com acesso ao painel MASTER (precisam bater com as regras do Firestore)
@@ -446,6 +450,11 @@ class GMap{
     const b = new google.maps.LatLngBounds(); points.forEach(p => b.extend(p));
     this.map.fitBounds(b, pad || 50);
   }
+  areas(list){
+    const sig = JSON.stringify(list.map(c => [c.lat, c.lng, c.raioKm])); if (this._asig === sig) return; this._asig = sig;
+    (this._areas || []).forEach(a => a.setMap(null));
+    this._areas = list.map(c => new google.maps.Circle({map:this.map, center:{lat:+c.lat, lng:+c.lng}, radius:num(c.raioKm, 10) * 1000, strokeColor:'#FFC400', strokeOpacity:.6, strokeWeight:1.5, fillColor:'#FFC400', fillOpacity:.05, clickable:false}));
+  }
   panTo(p){ this.map.panTo(ll(p)); }
   center(){ const c = this.map.getCenter(); return c ? {lat:c.lat(), lng:c.lng()} : null; }
   onIdle(fn){ this.map.addListener('idle', fn); }
@@ -491,6 +500,11 @@ class LMap{
     const b = L.latLngBounds(points.map(p => [p.lat, p.lng]));
     const P = typeof pad === 'number' || !pad ? {top:pad || 40, bottom:pad || 40, left:pad || 40, right:pad || 40} : pad;
     this.map.fitBounds(b, {paddingTopLeft:[P.left, P.top], paddingBottomRight:[P.right, P.bottom], maxZoom:17});
+  }
+  areas(list){
+    const sig = JSON.stringify(list.map(c => [c.lat, c.lng, c.raioKm])); if (this._asig === sig) return; this._asig = sig;
+    (this._areas || []).forEach(a => a.remove());
+    this._areas = list.map(c => L.circle([+c.lat, +c.lng], {radius:num(c.raioKm, 10) * 1000, color:'#d97706', weight:1.5, dashArray:'6 8', fillColor:'#FFC400', fillOpacity:.06, interactive:false}).addTo(this.map));
   }
   panTo(p){ this.map.panTo([p.lat, p.lng]); }
   center(){ const c = this.map.getCenter(); return {lat:c.lat, lng:c.lng}; }
@@ -567,7 +581,7 @@ function setSync(kind, txt){
 
 /* ================= estado ================= */
 const S = {
-  empresas:[], pilotos:[], corridas:[], loaded:{},
+  empresas:[], pilotos:[], corridas:[], cidades:[], loaded:{},
   view:'passageiro', field:'origem', origem:null, destino:null, rota:null, calc:false,
   empresaSel:'', pagamento:'Dinheiro',
   pNome:LS.get('mtu_nome', ''), pTel:LS.get('mtu_tel', ''),
@@ -603,6 +617,17 @@ function motoState(r){
 }
 const fmtRem = (rem, sp) => { const m = Math.ceil(rem / sp / 60); return rem < 40 ? 'agora' : m <= 1 ? 'menos de 1 min' : m + ' min'; };
 const motoCor = r => { const p = pil(r.pilotoId); return corHex((p && p.moto && p.moto.cor) || (r.moto && r.moto.cor)); };
+/* ================= área atendida ================= */
+function cidadesAtivas(){
+  if (!S.loaded.cidades || !S.cidades.length) return [CONFIG.CIDADE_PADRAO];
+  return S.cidades.filter(c => c.ativa !== false && isFinite(c.lat) && isFinite(c.lng));
+}
+function cidadeDe(p){
+  if (!p) return null; let best = null, bd = Infinity;
+  for (const c of cidadesAtivas()){ const d = hav(p, c); if (d <= num(c.raioKm, 10) * 1000 && d < bd){ bd = d; best = c; } }
+  return best;
+}
+const nomesCidades = () => cidadesAtivas().map(c => c.nome).join(', ') || 'nenhuma no momento';
 const precoEmp = (e, km) => Math.round(Math.max(num(e.minima, 0), num(e.tarifaBase, 0) + num(e.porKm, 0) * km) * 100) / 100;
 
 /* ================= PASSAGEIRO ================= */
@@ -631,17 +656,24 @@ function drawPass(){
     if (S.origem) put('o', S.origem, MK.origem(), 3);
   }
   if (S.gpsPass) put('me', S.gpsPass, MK.eu(), 1);
+  pmap.areas(r && r.status !== 'cancelada' && r.status !== 'concluida' ? [] : cidadesAtivas());
   pmap.keep(keep);
 }
 async function onPassTap(p){
   if (myRide()){ toast('Você já tem uma corrida. Finalize ou cancele para pedir outra.'); return; }
   const which = S.field === 'destino' ? 'destino' : 'origem';
   S[which] = {...p, end:'Buscando endereço…'};
+  if ((await Promise.resolve(cidadeDe(p))) == null){ afterPoint(which); return; }
   afterPoint(which);
   const end = await addressOf(p);
   if (S[which] && S[which].lat === p.lat && S[which].lng === p.lng){ S[which].end = end; updateSearchCard(); renderPass(); }
 }
 async function afterPoint(which){
+  if (S[which] && !cidadeDe(S[which])){
+    S[which] = null; S.rota = null; S.field = which;
+    toast(`Esse local está fora da área atendida. Atendemos: ${nomesCidades()}.`);
+    updateSearchCard(); renderPass(); return false;
+  }
   if (which === 'origem' && !S.destino) S.field = 'destino';
   else if (which === 'destino' && !S.origem) S.field = 'origem';
   S.sheetMin = false; S.rota = null;
@@ -683,16 +715,16 @@ function setupOsmSearch(){
   const inp = $('#destInput'), sugs = $('#sugs'); let timer = null, seq = 0;
   const show = list => {
     S._sugs = list;
-    if (!list.length){ sugs.innerHTML = `<div class="sug muted">Nada encontrado — tente outro nome ou toque no mapa.</div>`; sugs.style.display = ''; return; }
+    if (!list.length){ sugs.innerHTML = `<div class="sug muted">Nada encontrado na área atendida (${esc(nomesCidades())}). Tente outro nome ou toque no mapa.</div>`; sugs.style.display = ''; return; }
     sugs.innerHTML = list.map((it, i) => `<div class="sug" data-act="sug" data-i="${i}"><span style="font-size:16px">📍</span><div><b>${esc(it.titulo)}</b><small>${esc(it.sub)}</small></div></div>`).join('');
     sugs.style.display = '';
   };
   const buscar = async q => {
-    const my = ++seq; const c = pmap.center() || CFG.center;
+    const my = ++seq; const c = cidadeDe(pmap.center()) || cidadeDe(S.origem) || cidadesAtivas()[0] || CFG.center;
     try{
       const r = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=7&lat=${c.lat}&lon=${c.lng}&location_bias_scale=0.4`);
       const j = await r.json(); if (my !== seq) return;
-      show((j.features || []).filter(f => !f.properties.countrycode || f.properties.countrycode === 'BR').map(f => {
+      show((j.features || []).filter(f => (!f.properties.countrycode || f.properties.countrycode === 'BR') && cidadeDe({lat:f.geometry.coordinates[1], lng:f.geometry.coordinates[0]})).map(f => {
         const p = f.properties; const rua = [p.street, p.housenumber].filter(Boolean).join(', ');
         const titulo = p.name || rua || p.city || q;
         const sub = [p.name && rua ? rua : '', p.district || p.locality, p.city, p.state].filter(Boolean).join(' - ');
@@ -754,12 +786,16 @@ function renderPass(){
   else if (!S.empresas.length){
     h = `<div class="empty"><div class="big">🏢</div><b>Nenhuma empresa de mototáxi cadastrada</b>${S.role === 'cliente' ? '<p class="small mt">Ainda não há empresas disponíveis na sua região. Volte em breve!</p>' : '<p class="small mt">Cadastre empresas e pilotos no painel <b>Master</b> para começar a pedir corridas.</p><button class="btn mt" data-act="nav" data-v="master">Ir para o Master</button>'}</div>`;
   }
+  else if (!cidadesAtivas().length){
+    h = `<div class="empty"><div class="big">⏸️</div><b>Serviço temporariamente indisponível</b><p class="small mt">No momento não estamos atendendo nenhuma cidade. Volte em breve!</p></div>`;
+  }
   else if (!S.origem){
     const n = S.pilotos.filter(p => p.online && !ocupado(p.id)).length;
     const nomeOla = (S.cliente && S.cliente.nome) || S.pNome;
     h = `<h2>Olá${nomeOla ? ', ' + esc(nomeOla.split(' ')[0]) : ''}! 👋</h2><p class="muted mt" style="font-size:14px">📍 Marque onde você está: <b style="color:var(--text)">toque no mapa</b> ou use o GPS.</p>
       <button class="btn block mt" data-act="gps">📡 Usar minha localização</button>
-      <div class="row mt"><span class="tag ${n ? 'on' : ''}">● ${n} piloto${n === 1 ? '' : 's'} online</span><span class="tag">${S.empresas.length} empresa${S.empresas.length === 1 ? '' : 's'}</span></div>`;
+      <div class="row mt"><span class="tag ${n ? 'on' : ''}">● ${n} piloto${n === 1 ? '' : 's'} online</span><span class="tag">${S.empresas.length} empresa${S.empresas.length === 1 ? '' : 's'}</span></div>
+      <p class="small muted mt">📍 Atendemos: <b style="color:var(--text)">${esc(cidadesAtivas().map(c => c.nome + (c.uf ? '-' + c.uf : '')).join(', '))}</b></p>`;
   }
   else if (!S.destino){
     h = `<h2>Para onde vamos?</h2><p class="muted mt" style="font-size:14px">🏁 Digite o endereço no campo <b style="color:var(--text)">“Para onde?”</b> ou toque no mapa para marcar o destino.</p>`;
@@ -828,7 +864,7 @@ async function pedir(){
   const id = uid();
   const r = {id, status:'procurando', criadaEm:Date.now(), passageiro:{nome:S.pNome.slice(0, 60), tel:S.pTel.slice(0, 30)},
     origem:{lat:S.origem.lat, lng:S.origem.lng, end:S.origem.end}, destino:{lat:S.destino.lat, lng:S.destino.lng, end:S.destino.end},
-    rota:encPath(S.rota.path), distKm:km, durMin:Math.round(S.rota.durS / 60), valor:precoEmp(e, km), empresaId:e.id, empresaNome:e.nome, pagamento:S.pagamento, pilotoId:null, demo:false, clienteId:S.user ? S.user.uid : null};
+    rota:encPath(S.rota.path), distKm:km, durMin:Math.round(S.rota.durS / 60), valor:precoEmp(e, km), empresaId:e.id, empresaNome:e.nome, pagamento:S.pagamento, pilotoId:null, demo:false, clienteId:S.user ? S.user.uid : null, cidade:(cidadeDe(S.origem) || {}).nome || ''};
   S.minhaLocal = r; S.minha = id; LS.set('mtu_minha', id);
   renderPass();
   try{ await Store.set('corridas', id, r); toast('Pedido enviado! 🏍️'); }catch(err){ S.minha = null; S.minhaLocal = null; LS.set('mtu_minha', null); renderPass(); }
@@ -973,13 +1009,14 @@ async function aceitar(id){
 
 /* ================= EMPRESAS (admin) ================= */
 function renderAdmin(){
-  if (!['painel','empresas','pilotos','clientes','corridas'].includes(S.admTab)) S.admTab = 'painel';
-  patch($('#admTabs'), [['painel','📊 Painel'],['empresas','🏢 Empresas'],['pilotos','🏍️ Pilotos'],['clientes','👥 Clientes'],['corridas','🧾 Corridas']].map(([k, l]) => `<button class="chip ${S.admTab === k ? 'on' : ''}" data-act="admTab" data-v="${k}">${l}</button>`).join(''));
+  if (!['painel','cidades','empresas','pilotos','clientes','corridas'].includes(S.admTab)) S.admTab = 'painel';
+  patch($('#admTabs'), [['painel','📊 Painel'],['cidades','📍 Cidades'],['empresas','🏢 Empresas'],['pilotos','🏍️ Pilotos'],['clientes','👥 Clientes'],['corridas','🧾 Corridas']].map(([k, l]) => `<button class="chip ${S.admTab === k ? 'on' : ''}" data-act="admTab" data-v="${k}">${l}</button>`).join(''));
   const online = S.pilotos.filter(p => p.online).length;
   const hoje = new Date().toDateString();
   const ch = S.corridas.filter(r => new Date(r.criadaEm).toDateString() === hoje).length;
   let h = S.admTab === 'painel' ? '' : `<div class="stats mb"><div class="stat"><b>${S.empresas.length}</b><span>empresas</span></div><div class="stat"><b>${S.pilotos.length}</b><span>pilotos</span></div><div class="stat"><b style="color:#86efac">${online}</b><span>online</span></div><div class="stat"><b>${ch}</b><span>corridas hoje</span></div></div>`;
   if (S.admTab === 'painel') h += masterDash();
+  if (S.admTab === 'cidades') h += cidadesTab();
   if (S.admTab === 'clientes'){
     const cl = (S.clientes || []).slice().sort((a, b) => (b.criadoEm || 0) - (a.criadoEm || 0));
     h += `<div class="row between mb"><h3>Clientes cadastrados</h3><span class="tag">${cl.length}</span></div>`;
@@ -1061,6 +1098,54 @@ function masterDash(){
     <div class="card mt"><h3>Corridas agora (${ativos.length})</h3>${ativos.length ? `<div class="list mt">${ativos.slice(0, 8).map(r => { const [l, c] = STATUS[r.status] || [r.status, '']; return `<div style="border-top:1px solid var(--line);padding-top:10px"><div class="row between"><span class="tag ${c}">${esc(l)}</span><span class="small muted">${ago(r.criadaEm)}</span></div><div class="small mt"><b>${esc(r.passageiro && r.passageiro.nome)}</b>${r.pilotoNome ? ' → 🏍️ ' + esc(r.pilotoNome) : ''} · ${esc(r.empresaNome)} · <b>${BRL(r.valor)}</b></div><div class="small muted">${esc(r.origem.end)} → ${esc(r.destino.end)}</div></div>`; }).join('')}</div>` : `<p class="small muted mt">Nenhuma corrida em andamento.</p>`}</div>
     <div class="card mt"><h3>Empresas no mês</h3>${porEmp.length ? `<div class="list mt">${porEmp.map(x => `<div><div class="row between small"><span class="row" style="gap:8px"><span class="sw" style="background:${safeColor(x.e.cor)}"></span><b>${esc(x.e.nome)}</b></span><span>${x.n} corrida${x.n === 1 ? '' : 's'} · <b>${BRL(x.v)}</b></span></div><div class="bar mt" style="margin-top:6px"><i style="width:${x.v / maxEmp * 100}%;background:${safeColor(x.e.cor)}"></i></div></div>`).join('')}</div>` : `<p class="small muted mt">Cadastre empresas na aba Empresas.</p>`}</div>
     <div class="card mt"><h3>Melhores pilotos do mês</h3>${porPil.length ? `<div class="list mt">${porPil.map((x, i) => `<div class="row" style="gap:10px"><b class="muted" style="width:18px">${i + 1}º</b><img class="avatar" style="width:36px;height:36px" src="${safeImg(x.p.foto, x.p.nome)}" alt=""><div style="flex:1;min-width:0"><b class="small">${esc(x.p.nome)}</b><div class="small muted">${x.n} corrida${x.n === 1 ? '' : 's'}${x.m ? ' · ' + x.m.toFixed(1).replace('.', ',') + ' ⭐' : ''}</div></div><b class="small">${BRL(x.v)}</b></div>`).join('')}</div>` : `<p class="small muted mt">Ainda não há corridas concluídas neste mês.</p>`}</div>`;
+}
+
+function cidadesTab(){
+  const lista = S.cidades.slice().sort((a, b) => (b.ativa !== false) - (a.ativa !== false) || (a.nome || '').localeCompare(b.nome || ''));
+  const ativas = lista.filter(c => c.ativa !== false).length;
+  const tem = n => S.cidades.some(c => (c.nome || '').toLowerCase() === n.toLowerCase());
+  const sug = (CONFIG.SUGESTOES_REGIAO || []).filter(n => !tem(n));
+  const corridasCidade = n => S.corridas.filter(r => r.cidade === n).length;
+  let h = `<div class="row between mb"><h3>Cidades atendidas</h3><button class="btn sm" data-act="novaCidade">＋ Adicionar cidade</button></div>
+    <p class="small muted mb">O passageiro só consegue marcar origem e destino dentro do raio das cidades <b style="color:var(--text)">ativas</b>. Desative uma cidade para pausar o atendimento nela.</p>`;
+  if (!lista.length) h += `<div class="note mb">Nenhuma cidade cadastrada ainda — por enquanto o app usa a área padrão: <b>${esc(CONFIG.CIDADE_PADRAO.nome)}-${esc(CONFIG.CIDADE_PADRAO.uf)}</b> (raio de ${CONFIG.CIDADE_PADRAO.raioKm} km). <button class="btn sm mt" data-act="addCidadeNome" data-n="${esc(CONFIG.CIDADE_PADRAO.nome)}" style="display:flex">＋ Cadastrar ${esc(CONFIG.CIDADE_PADRAO.nome)}</button></div>`;
+  else h += `<div class="list">${lista.map(c => `<div class="card"><div class="row"><div style="flex:1;min-width:0"><b>📍 ${esc(c.nome)}${c.uf ? ' - ' + esc(c.uf) : ''}</b><div class="small muted">${corridasCidade(c.nome)} corrida${corridasCidade(c.nome) === 1 ? '' : 's'} · ${(+c.lat).toFixed(4)}, ${(+c.lng).toFixed(4)}</div></div>
+      <button class="switch ${c.ativa !== false ? 'on' : ''}" data-act="toggleCidade" data-id="${esc(c.id)}" aria-label="Ativar cidade"></button></div>
+      <div class="row mt" style="gap:8px"><label class="small muted" style="display:flex;align-items:center;gap:8px">Raio de atendimento <select class="input" data-raio="${esc(c.id)}" style="width:auto;padding:6px 30px 6px 10px">${[3, 5, 8, 10, 12, 15, 20, 25, 30, 40].map(r => `<option value="${r}" ${num(c.raioKm) === r ? 'selected' : ''}>${r} km</option>`).join('')}</select></label><span style="flex:1"></span><button class="btn danger sm" data-act="delCidade" data-id="${esc(c.id)}" aria-label="Excluir">🗑</button></div></div>`).join('')}</div>
+      <p class="small mt" style="color:${ativas ? '#86efac' : '#fca5a5'}">${ativas ? `● ${ativas} cidade${ativas === 1 ? '' : 's'} ativa${ativas === 1 ? '' : 's'}` : '⚠ Nenhuma cidade ativa — o app não aceita pedidos.'}</p>`;
+  if (sug.length) h += `<h3 class="mt2 mb">Cidades da região</h3><p class="small muted mb">Toque para adicionar (a localização é buscada automaticamente).</p><div class="row wrap" style="gap:8px">${sug.map(n => `<button class="chip" data-act="addCidadeNome" data-n="${esc(n)}">＋ ${esc(n)}</button>`).join('')}</div>`;
+  return h;
+}
+const slug = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const UF_NOME = {AC:'Acre',AL:'Alagoas',AP:'Amapá',AM:'Amazonas',BA:'Bahia',CE:'Ceará',DF:'Distrito Federal',ES:'Espírito Santo',GO:'Goiás',MA:'Maranhão',MT:'Mato Grosso',MS:'Mato Grosso do Sul',MG:'Minas Gerais',PA:'Pará',PB:'Paraíba',PR:'Paraná',PE:'Pernambuco',PI:'Piauí',RJ:'Rio de Janeiro',RN:'Rio Grande do Norte',RS:'Rio Grande do Sul',RO:'Rondônia',RR:'Roraima',SC:'Santa Catarina',SP:'São Paulo',SE:'Sergipe',TO:'Tocantins'};
+async function adicionarCidade(nome, uf = 'PE', raioKm = 10){
+  nome = String(nome || '').trim(); uf = String(uf || 'PE').trim().toUpperCase();
+  if (!nome) return false;
+  if (S.cidades.some(c => (c.nome || '').toLowerCase() === nome.toLowerCase() && (c.uf || '') === uf)){ toast('Essa cidade já está cadastrada.'); return false; }
+  toast(`Buscando ${nome}…`);
+  let lat, lng, nomeOficial = nome;
+  if (nome.toLowerCase() === CONFIG.CIDADE_PADRAO.nome.toLowerCase() && uf === CONFIG.CIDADE_PADRAO.uf){ lat = CONFIG.CIDADE_PADRAO.lat; lng = CONFIG.CIDADE_PADRAO.lng; }
+  else {
+    try{
+      const j = await nominatim(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&countrycodes=br&addressdetails=1&city=${encodeURIComponent(nome)}&state=${encodeURIComponent(UF_NOME[uf] || uf)}`);
+      const it = (j || []).find(x => ['city','town','village','municipality','administrative'].includes(x.addresstype || x.type)) || (j || [])[0];
+      if (!it){ toast(`Não encontrei "${nome}" em ${UF_NOME[uf] || uf}. Confira o nome.`); return false; }
+      lat = +(+it.lat).toFixed(5); lng = +(+it.lon).toFixed(5); nomeOficial = (it.address && (it.address.city || it.address.town || it.address.village || it.address.municipality)) || nome;
+    }catch(e){ toast('Não consegui buscar a cidade agora. Tente de novo.'); return false; }
+  }
+  try{ await Store.set('cidades', slug(nomeOficial + '-' + uf), {nome:nomeOficial, uf, lat, lng, raioKm:num(raioKm, 10), ativa:true, criadoEm:Date.now()}); toast(`📍 ${nomeOficial} adicionada!`); return true; }catch(e){ return false; }
+}
+function cidadeForm(){
+  openModal(`<h3>Adicionar cidade</h3>
+    <form id="fCid" class="col mt">
+      <div class="grid2" style="grid-template-columns:2fr 1fr"><label class="f">Nome da cidade *<input class="input" name="nome" required maxlength="60" placeholder="Ex.: Carpina"></label>
+      <label class="f">Estado<select class="input" name="uf">${Object.keys(UF_NOME).map(u => `<option ${u === 'PE' ? 'selected' : ''}>${u}</option>`).join('')}</select></label></div>
+      <label class="f">Raio de atendimento<select class="input" name="raio">${[3, 5, 8, 10, 12, 15, 20, 25, 30, 40].map(r => `<option value="${r}" ${r === 10 ? 'selected' : ''}>${r} km</option>`).join('')}</select><span style="font-weight:500">Distância a partir do centro da cidade em que os pedidos são aceitos.</span></label>
+      <div class="grid2 mt"><button type="button" class="btn ghost" data-act="closeModal">Cancelar</button><button class="btn">Adicionar</button></div>
+    </form>`, c => c.querySelector('#fCid').addEventListener('submit', async ev => {
+      ev.preventDefault(); const f = new FormData(ev.target); const btn = ev.target.querySelector('button.btn:not(.ghost)'); btn.disabled = true;
+      const ok = await adicionarCidade(f.get('nome'), f.get('uf'), f.get('raio')); btn.disabled = false; if (ok) closeModal();
+    }));
 }
 
 /* ---------- modais ---------- */
@@ -1193,6 +1278,10 @@ function showSetup(first){
 
 /* ================= eventos ================= */
 const ACT = {
+  novaCidade:() => cidadeForm(),
+  addCidadeNome:d => adicionarCidade(d.n, CONFIG.CIDADE_PADRAO.uf, d.n === CONFIG.CIDADE_PADRAO.nome ? CONFIG.CIDADE_PADRAO.raioKm : 10),
+  toggleCidade:d => { const c = S.cidades.find(x => x.id === d.id); c && Store.update('cidades', c.id, {ativa:c.ativa === false}); },
+  delCidade:async d => { const c = S.cidades.find(x => x.id === d.id); if (c && await confirmar(`Remover <b>${esc(c.nome)}</b> das cidades atendidas?`, 'Remover')){ await Store.del('cidades', c.id); toast('Cidade removida'); } },
   conta:() => contaModal(),
   authTab:d => { S.authTab = d.v; S.authErr = ''; renderPass(); },
   loginGoogle:() => loginGoogle(),
@@ -1240,6 +1329,7 @@ document.addEventListener('input', e => {
 document.addEventListener('change', e => {
   if (e.target.id === 'selPiloto'){ S.meuPiloto = e.target.value; LS.set('mtu_piloto', S.meuPiloto); renderPiloto(); renderPilotCount(); }
   if (e.target.id === 'filtroEmp'){ S.filtroEmp = e.target.value; renderAdmin(); }
+  if (e.target.dataset && e.target.dataset.raio){ Store.update('cidades', e.target.dataset.raio, {raioKm:num(e.target.value, 10)}); }
   if (e.target.id === 'buscaCli'){ S.buscaCli = e.target.value; renderAdmin(); }
 });
 
@@ -1531,11 +1621,17 @@ function tick(t){
   setSync('wait');
   initAuth();
   pmap = makeMap($('#passMap'), {onTap:onPassTap});
-  try{ await pmap.init(LS.get('mtu_center', null) || CFG.center); }
+  const salvo = LS.get('mtu_center', null);
+  try{ await pmap.init(salvo && hav(salvo, CONFIG.CIDADE_PADRAO) < 60000 ? salvo : CFG.center); }
   catch(e){ console.error(e); $('#splash').innerHTML = `<div class="pad" style="text-align:center"><div style="font-size:40px">🗺️</div><h3>Não consegui carregar o Google Maps</h3><p class="muted small mt">Verifique sua conexão e a chave da API.</p><button class="btn mt" data-act="setup">Configurar chave</button></div>`; return; }
   pmap.onIdle(() => { const c = pmap.center(); c && LS.set('mtu_center', c); });
   setupAutocomplete();
   ['empresas','pilotos'].forEach(c => Store.subscribe(c, list => { S[c] = list; S.loaded[c] = true; renderAll(); }));
+  Store.subscribe('cidades', list => {
+    const primeira = !S.loaded.cidades; S.cidades = list; S.loaded.cidades = true;
+    if (primeira && !S.origem && !myRide() && !cidadeDe(pmap.center())){ const c = cidadesAtivas()[0]; if (c){ pmap.panTo(c); } }
+    renderAll();
+  });
   $('#splash').remove();
   renderAll();
   go(location.hash.slice(1) || S.view);
