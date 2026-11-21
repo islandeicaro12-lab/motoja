@@ -3,7 +3,7 @@
 ## O que já está pronto
 - **Banco de dados (Firebase Firestore)**: projeto `motoja-mototaxi`, dados em São Paulo, plano gratuito Spark (sem cartão). Já configurado dentro do `index.html`.
 - **Mapa gratuito (OpenStreetMap)**: funciona sem chave e sem cartão.
-  - Mapa: OpenStreetMap + CARTO
+  - Mapa: OpenStreetMap
   - Busca de destino: Photon (komoot)
   - Endereço do ponto tocado: Nominatim (OpenStreetMap)
   - Rota, distância e tempo: OSRM
