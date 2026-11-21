@@ -10,3 +10,8 @@ self.addEventListener('notificationclick', e => {
     await self.clients.openWindow(url);
   })());
 });
+// rede primeiro (necessário para alguns navegadores considerarem o app instalável)
+self.addEventListener('fetch', e => {
+  if (e.request.method !== 'GET' || new URL(e.request.url).origin !== self.location.origin) return;
+  e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+});

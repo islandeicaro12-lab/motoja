@@ -5,6 +5,20 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0E6B45">
 <title>MotoJá — Mototáxi</title>
+<link rel="manifest" id="manifestLink" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" id="appleIcon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<script>
+  /* App do piloto: ?app=piloto (ou piloto.html) abre direto na área do piloto, com ícone e nome próprios */
+  window.APP_PILOTO = new URLSearchParams(location.search).get('app') === 'piloto';
+  if (window.APP_PILOTO){
+    document.getElementById('manifestLink').href = 'manifest-piloto.json';
+    document.getElementById('appleIcon').href = 'apple-touch-icon-piloto.png';
+    document.title = 'MotoJá Piloto';
+  }
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&display=swap" rel="stylesheet">
 <style>
@@ -171,7 +185,7 @@ label.f > span{font-weight:400;color:var(--cinza);font-size:12.5px}
 .bar i{display:block;height:100%;background:var(--cana);border-radius:8px}
 .avatar{width:52px;height:52px;border-radius:50%;object-fit:cover;flex:none;background:var(--sup2);border:2px solid var(--linha)}
 .avatar.lg{width:74px;height:74px;border:3px solid var(--cana)}
-.tag{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:99px;background:var(--sup2);border:1px solid var(--linha);color:var(--cinza)}
+.tag{white-space:nowrap;display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:700;padding:3px 9px;border-radius:99px;background:var(--sup2);border:1px solid var(--linha);color:var(--cinza)}
 .tag.on{color:var(--ok-ink);border-color:#BFE0CC;background:#EEF7F1}
 .tag.y{color:var(--warn-ink);border-color:#F1DBA6;background:var(--sinal-bg)}
 .tag.r{color:var(--danger-ink);border-color:#F2C9C6;background:#FCEDEC}
@@ -215,6 +229,9 @@ label.f > span{font-weight:400;color:var(--cinza);font-size:12.5px}
 .authlogo{display:none}
 .or{display:flex;align-items:center;gap:10px;color:var(--cinza);font-size:13px;margin:18px 0}
 .or::before,.or::after{content:'';flex:1;height:1px;background:var(--linha)}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--sup2);border:1px solid var(--linha);border-radius:14px;padding:4px;margin-bottom:18px}
+.seg button{border:0;background:none;border-radius:10px;padding:10px;font-weight:700;font-size:14.5px;cursor:pointer;color:var(--cinza)}
+.seg button.on{background:var(--sup);color:var(--tinta);box-shadow:0 1px 3px rgba(21,35,28,.15)}
 .authErr{background:#FCEDEC;color:var(--danger-ink);border:1px solid #F2C9C6;border-radius:12px;padding:10px 12px;font-size:14px}
 
 /* modal, aviso, carregando */
@@ -648,6 +665,7 @@ const S = {
   minha:LS.get('mtu_minha', null), minhaLocal:null,
   meuPiloto:LS.get('mtu_piloto', ''), myPos:null,
   admTab:'empresas', filtroEmp:'', advancing:'', sheetMin:false,
+  authPerfil:(window.APP_PILOTO || location.hash === '#piloto') ? 'piloto' : 'passageiro', pilTab:'entrar',
 };
 const emp = id => S.empresas.find(e => e.id === id);
 const pil = id => S.pilotos.find(p => p.id === id);
@@ -993,6 +1011,7 @@ function renderPiloto(){
         <button class="switch ${me.online ? 'on' : ''}" data-act="toggleOnline" aria-label="Ficar online"></button></div>
         <div class="row between mt small"><span style="color:${me.online ? 'var(--ok-ink)' : 'var(--muted)'};font-weight:700">${me.online ? '● Você está online' : '○ Você está offline'}</span><span class="muted">Hoje: <b style="color:var(--text)">${feitas.length}</b> corridas · <b style="color:var(--text)">${BRL(feitas.reduce((s, r) => s + num(r.valor), 0))}</b></span></div>
         ${me.online ? `<div class="small mt" style="color:${S.gpsErr ? 'var(--danger-ink)' : 'var(--muted)'}">${S.gpsErr ? '⚠ GPS bloqueado — libere a localização para os passageiros verem você no mapa.' : S.myPos ? '📡 GPS ativo — sua posição é compartilhada com o passageiro.' : '📡 Ativando GPS…'}</div>` : ''}</div>`;
+      if ((logado || S.role === 'local') && !prontoBasico()) top += prontidao(me);
       if (logado) top += pilotStats(me);
     }
   }
@@ -1117,6 +1136,7 @@ function renderAdmin(){
   }
   if (S.admTab === 'pilotos'){
     if (S.filtroEmp && !emp(S.filtroEmp)) S.filtroEmp = '';
+    h += `<div class="note mb row between" style="gap:10px"><span>Link do app do piloto: <b style="word-break:break-all">${esc(LINK_PILOTO)}</b></span><button class="btn ghost sm" data-act="copiarLinkPiloto">Copiar</button></div>`;
     h += `<div class="row between mb"><h3>Mototaxistas</h3><button class="btn sm" data-act="novoPiloto" ${S.empresas.length ? '' : 'disabled'}>＋ Novo piloto</button></div>`;
     if (!S.empresas.length) h += `<div class="empty"><div class="big">🏢</div><b>Cadastre uma empresa primeiro</b><p class="small mt">Todo piloto pertence a uma empresa de mototáxi.</p><button class="btn mt" data-act="admTab" data-v="empresas">Ir para Empresas</button></div>`;
     else {
@@ -1128,7 +1148,7 @@ function renderAdmin(){
           <div class="small muted">${esc(e ? e.nome : '—')}${p.telefone ? ' · ' + esc(p.telefone) : ''}</div>
           <div class="small mt" style="color:${p.email ? (p.uid ? 'var(--ok-ink)' : 'var(--muted)') : 'var(--warn-ink)'}">${p.email ? `🔑 ${esc(p.email)} · ${p.uid ? 'já entrou no app' : 'ainda não entrou'}` : '⚠ sem e-mail de login — edite para o piloto poder entrar'}</div>
           <div class="row mt small" style="gap:8px;flex-wrap:wrap"><span class="sw" style="background:${corHex(m.cor)}"></span><span>${esc([m.marca, m.modelo, m.ano].filter(Boolean).join(' '))} · ${esc(m.cor || '')}</span><span class="plate" style="font-size:11px;padding:2px 6px;border-top-width:3px">${esc(m.placa || '')}</span></div></div></div>
-          <div class="row end mt" style="gap:8px"><button class="btn ghost sm" data-act="editPiloto" data-id="${esc(p.id)}">Editar</button><button class="btn danger sm" data-act="delPiloto" data-id="${esc(p.id)}" aria-label="Excluir">🗑</button></div></div>`; }).join('')}</div>`;
+          <div class="row end mt" style="gap:8px"><button class="btn sm" data-act="convitePiloto" data-id="${esc(p.id)}" ${p.email ? '' : 'disabled'}>Convidar</button><span style="flex:1"></span><button class="btn ghost sm" data-act="editPiloto" data-id="${esc(p.id)}">Editar</button><button class="btn danger sm" data-act="delPiloto" data-id="${esc(p.id)}" aria-label="Excluir">🗑</button></div></div>`; }).join('')}</div>`;
     }
   }
   if (S.admTab === 'corridas'){
@@ -1225,6 +1245,24 @@ function cidadeForm(){
     }));
 }
 
+/* ================= APP DO PILOTO ================= */
+const LINK_PILOTO = location.origin + location.pathname.replace(/[^/]*$/, '') + 'piloto.html';
+const appInstalado = () => (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+const ehIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); S.installEvt = e; try{ renderAll(); }catch(err){} });
+window.addEventListener('appinstalled', () => { S.installEvt = null; toast('App do piloto instalado! Abra pelo ícone na tela inicial.'); });
+function convitePiloto(id){
+  const p = pil(id); if (!p) return; const e = emp(p.empresaId);
+  const txt = `Olá, ${p.nome.split(' ')[0]}! Você foi cadastrado como piloto da ${e ? e.nome : 'MotoJá'} no app MotoJá.\n\n1) Abra o app do piloto: ${LINK_PILOTO}\n2) Entre com o e-mail: ${p.email}\n   (pelo Google ou em "Primeiro acesso", criando uma senha)\n3) Siga o passo a passo para o celular tocar quando chegar corrida.`;
+  S._convite = txt;
+  const fone = String(p.telefone || '').replace(/\D/g, ''); const wa = fone ? `https://wa.me/${fone.length <= 11 ? '55' + fone : fone}?text=${encodeURIComponent(txt)}` : '';
+  openModal(`<div class="row between"><h3>Convidar ${esc(p.nome.split(' ')[0])}</h3><button class="xbtn" data-act="closeModal" aria-label="Fechar">✕</button></div>
+    ${p.email ? '' : '<div class="authErr mt">Este piloto ainda não tem e-mail de login. Edite o cadastro e informe o e-mail antes de convidar.</div>'}
+    <p class="small muted mt">Mande esta mensagem para o piloto. Ele abre o link, entra com o e-mail cadastrado e já fica pronto para receber corridas.</p>
+    <textarea class="input mt" rows="8" readonly style="font-family:var(--f-txt);font-size:14px">${esc(txt)}</textarea>
+    <div class="grid2 mt"><button class="btn ghost" data-act="copiarConvite">Copiar mensagem</button>${wa ? `<a class="btn" href="${esc(wa)}" target="_blank" rel="noopener">Enviar no WhatsApp</a>` : '<button class="btn" disabled>Sem telefone</button>'}</div>`);
+}
+
 /* ================= DISTRIBUIÇÃO + ALERTAS ================= */
 const APP_URL = location.origin + location.pathname;
 function enviarNtfy(topic, title, message, priority = 5){
@@ -1315,9 +1353,26 @@ function checarAlarme(){
     notificarSistema('🏍️ Nova corrida — MotoJá', `${r.origem.end} → ${r.destino.end} · ${BRL(r.valor)}`, 'corrida-' + r.id);
   }
 }
+function prontoBasico(){ return appInstalado() && ('Notification' in window ? Notification.permission === 'granted' : true) && !!LS.get('mtu_testouToque', false); }
+function prontidao(me){
+  const nperm = 'Notification' in window ? Notification.permission : 'unsupported';
+  const passos = [
+    {ok:appInstalado(), titulo:'Instalar o app do piloto', desc:appInstalado() ? 'Instalado — abra sempre pelo ícone.' : S.installEvt ? 'Fica na tela inicial, como um app.' : ehIOS ? 'No Safari: toque em Compartilhar e depois em "Adicionar à Tela de Início".' : 'No Chrome: menu ⋮ → "Instalar app" ou "Adicionar à tela inicial".',
+      btn:!appInstalado() && S.installEvt ? '<button class="btn sm" data-act="instalarApp">Instalar</button>' : ''},
+    {ok:nperm === 'granted', titulo:'Permitir notificações', desc:nperm === 'denied' ? 'Bloqueadas. Toque no cadeado ao lado do endereço → Notificações → Permitir.' : nperm === 'unsupported' ? (ehIOS ? 'No iPhone, instale o app primeiro (passo 1).' : 'Este navegador não mostra notificações.') : 'Para avisar mesmo com o app em segundo plano.',
+      btn:nperm === 'default' ? '<button class="btn sm" data-act="permitirNotif">Permitir</button>' : ''},
+    {ok:!!LS.get('mtu_testouToque', false), titulo:'Testar o toque', desc:'Confira se o volume está alto e o som funciona.', btn:'<button class="btn ghost sm" data-act="testarToque">Testar</button>'},
+    {ok:!!me.ntfy, titulo:'Tocar com o celular bloqueado', desc:me.ntfy ? 'Ativo pelo app ntfy.' : 'Opcional, mas recomendado. Veja abaixo como ativar.', btn:''},
+  ];
+  const feitos = passos.filter(x => x.ok).length;
+  return `<div class="card mt"><div class="row between"><h3>Prepare o celular para receber corridas</h3><span class="tag ${feitos === passos.length ? 'on' : 'y'}">${feitos} de ${passos.length}</span></div>
+    <ol class="list mt" style="list-style:none;gap:12px">${passos.map((x, i) => `<li class="row" style="align-items:flex-start;gap:12px">
+      <span style="width:28px;height:28px;border-radius:50%;flex:none;display:grid;place-items:center;font-weight:700;font-size:14px;${x.ok ? 'background:var(--cana);color:#fff' : 'background:var(--sup2);border:1.5px solid var(--linha-forte);color:var(--cinza)'}">${x.ok ? '✓' : i + 1}</span>
+      <div style="flex:1;min-width:0"><b style="${x.ok ? 'color:var(--cinza);text-decoration:line-through' : ''}">${x.titulo}</b><div class="small muted">${x.desc}</div></div>${x.ok ? '' : x.btn}</li>`).join('')}</ol></div>`;
+}
 function alertasCard(me){
   const nperm = 'Notification' in window ? Notification.permission : 'unsupported';
-  return `<div class="card mt" id="alertasCard"><div class="row between"><h3>🔔 Alertas de corrida</h3><button class="btn ghost sm" data-act="testarToque">Testar toque</button></div>
+  return (prontoBasico() ? prontidao(me) : '') + `<div class="card mt" id="alertasCard"><div class="row between"><h3>🔔 Alertas de corrida</h3><button class="btn ghost sm" data-act="testarToque">Testar toque</button></div>
     <div id="alarmeBar" class="row between mt" style="display:${alarmeTimer ? '' : 'none'};background:var(--sinal-bg);border:1.5px solid var(--sinal);border-radius:12px;padding:8px 12px"><b class="small pulse" style="color:var(--warn-ink)">🔊 Tocando…</b><button class="btn sm" data-act="pararToque">Parar</button></div>
     <div class="col mt" style="gap:8px;font-size:13px">
       <div class="row between"><span>📳 Som + vibração com o app aberto</span><span class="tag on">ativo</span></div>
@@ -1470,6 +1525,12 @@ function showSetup(first){
 
 /* ================= eventos ================= */
 const ACT = {
+  authPerfil:d => { S.authPerfil = d.v; S.authErr = ''; if (d.v === 'passageiro' && S.role === 'cliente') S.role = undefined; renderAll(); },
+  pilTab:d => { S.pilTab = d.v; S.authErr = ''; renderAll(); },
+  instalarApp:async () => { if (S.installEvt){ S.installEvt.prompt(); try{ await S.installEvt.userChoice; }catch(e){} S.installEvt = null; renderAll(); } },
+  convitePiloto:d => convitePiloto(d.id),
+  copiarConvite:async () => { try{ await navigator.clipboard.writeText(S._convite || ''); toast('Convite copiado! Cole no WhatsApp do piloto.'); }catch(e){ toast('Não consegui copiar — selecione o texto e copie.'); } },
+  copiarLinkPiloto:async () => { try{ await navigator.clipboard.writeText(LINK_PILOTO); toast('Link do app do piloto copiado!'); }catch(e){ toast(LINK_PILOTO); } },
   novaCidade:() => cidadeForm(),
   addCidadeNome:d => adicionarCidade(d.n, CONFIG.CIDADE_PADRAO.uf, d.n === CONFIG.CIDADE_PADRAO.nome ? CONFIG.CIDADE_PADRAO.raioKm : 10),
   toggleCidade:d => { const c = S.cidades.find(x => x.id === d.id); c && Store.update('cidades', c.id, {ativa:c.ativa === false}); },
@@ -1499,7 +1560,7 @@ const ACT = {
     const on = !me.online; if (on){ prepararAlertas(); } else { soltarTela(); pararAlarme(); }
     Store.update('pilotos', me.id, on ? {online:true, filaDesde:Date.now()} : {online:false}); },
   recusar:d => { pararAlarme(); const r = S.corridas.find(x => x.id === d.id); if (r) avancarOferta(r, 'recusa'); toast('Corrida recusada — passou para o próximo da fila.'); },
-  testarToque:() => { prepararAlertas(); tocarAlarme(6000); notificarSistema('🔔 Teste do MotoJá', 'É assim que você vai ser avisado de uma nova corrida.', 'teste'); },
+  testarToque:() => { LS.set('mtu_testouToque', true); prepararAlertas(); tocarAlarme(6000); notificarSistema('🔔 Teste do MotoJá', 'É assim que você vai ser avisado de uma nova corrida.', 'teste'); },
   pararToque:() => pararAlarme(),
   permitirNotif:async () => { await prepararAlertas(true); renderAll(); },
   ativarNtfy:async () => { const me = pil(S.meuPiloto); if (!me) return; const topic = 'motoja-' + Math.random().toString(36).slice(2, 8) + Math.random().toString(36).slice(2, 8); try{ await Store.update('pilotos', me.id, {ntfy:topic}); toast('Canal criado! Agora assine no app ntfy.'); }catch(e){} },
@@ -1605,6 +1666,7 @@ function authGate(){
   if (!S.user) return 'login';
   if (!S.role || S.role === 'pending') return 'loading';
   if (S.role === 'piloto-verificar') return 'verificar';
+  if (S.role === 'cliente' && S.authPerfil === 'piloto') return 'naoPiloto';
   if (S.role === 'cliente'){
     if (!S.cliLoaded) return 'loading';
     if (!S.cliente || !S.cliente.nome || !S.cliente.telefone) return 'perfil';
@@ -1668,8 +1730,30 @@ function authHtml(gate){
         <button type="button" class="linkbtn" data-act="sair">Sair e usar outra conta</button>
       </form></div>`;
   }
+  if (gate === 'naoPiloto') return `${HERO()}<div class="authcard"><h2 style="text-align:center">E-mail não cadastrado como piloto</h2>
+      <p class="muted mt" style="text-align:center">O e-mail <b style="color:var(--text)">${esc(userEmail())}</b> não está na lista de pilotos do MotoJá. Peça ao administrador para cadastrar você com este e-mail, ou entre com outro.</p>
+      <button class="btn block mt2" data-act="sair">Entrar com outro e-mail</button>
+      <button class="btn ghost block mt" data-act="authPerfil" data-v="passageiro">Usar como passageiro</button></div>`;
+  const perfilSeg = window.APP_PILOTO ? '' : `<div class="seg" role="tablist"><button role="tab" aria-selected="${S.authPerfil !== 'piloto'}" class="${S.authPerfil !== 'piloto' ? 'on' : ''}" data-act="authPerfil" data-v="passageiro">Sou passageiro</button><button role="tab" aria-selected="${S.authPerfil === 'piloto'}" class="${S.authPerfil === 'piloto' ? 'on' : ''}" data-act="authPerfil" data-v="piloto">Sou piloto</button></div>`;
+  if (S.authPerfil === 'piloto'){
+    const prim = S.pilTab === 'primeiro';
+    return `${HERO()}<div class="authcard">${perfilSeg}
+      <h2 style="text-align:center">Área do piloto</h2>
+      <p class="muted mt" style="text-align:center">Entre com o e-mail que a sua empresa cadastrou para você. Depois é só ficar online para receber as corridas.</p>
+      <button class="btn gbtn block mt2" data-act="loginGoogle"><svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg> Entrar com Google</button>
+      <div class="or">ou com e-mail e senha</div>
+      <div class="row" style="gap:6px"><button class="chip ${prim ? '' : 'on'}" style="flex:1" data-act="pilTab" data-v="entrar">Já tenho senha</button><button class="chip ${prim ? 'on' : ''}" style="flex:1" data-act="pilTab" data-v="primeiro">Primeiro acesso</button></div>
+      <form id="fAuth" class="col mt">
+        <label class="f">E-mail cadastrado<input class="input" name="email" type="email" required autocomplete="email"></label>
+        <label class="f">${prim ? 'Crie uma senha (mín. 6 caracteres)' : 'Senha'}<input class="input" name="senha" type="password" required minlength="6" autocomplete="${prim ? 'new-password' : 'current-password'}"></label>
+        ${prim ? '<p class="small muted">Vamos mandar um link para confirmar o seu e-mail.</p>' : ''}
+        ${err}
+        <button class="btn block mt">${prim ? 'Criar minha senha' : 'Entrar'}</button>
+        ${prim ? '' : `<button type="button" class="linkbtn" data-act="resetSenha">Esqueci minha senha</button>`}
+      </form></div>`;
+  }
   const criar = S.authTab !== 'entrar';
-  return `${HERO()}<div class="authcard">
+  return `${HERO()}<div class="authcard">${perfilSeg}
     <h2 style="text-align:center">${criar ? 'Crie sua conta no MotoJá' : 'Entre na sua conta'}</h2>
     <p class="muted mt" style="text-align:center">Peça mototáxi em ${esc(nomesCidades())} e acompanhe o piloto no mapa. É grátis.</p>
     <button class="btn gbtn block mt2" data-act="loginGoogle"><svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg> Continuar com Google</button>
@@ -1700,6 +1784,14 @@ async function authSubmit(f){
   const email = String(d.get('email') || '').trim(), senha = String(d.get('senha') || '');
   btn.disabled = true; S.authErr = '';
   try{
+    if (S.authPerfil === 'piloto'){
+      if (S.pilTab === 'primeiro'){
+        if (S.loaded.pilotos && !S.pilotos.some(x => (x.email || '').toLowerCase() === email.toLowerCase())){ S.authErr = 'Este e-mail não está cadastrado como piloto. Confira o e-mail ou fale com o administrador.'; _renderAuthKeep(f); return; }
+        await A.createUserWithEmailAndPassword(Store.auth, email, senha);
+        toast('Senha criada! Confirme seu e-mail para continuar.');
+      } else await A.signInWithEmailAndPassword(Store.auth, email, senha);
+      return;
+    }
     if (S.authTab !== 'entrar'){
       const nome = String(d.get('nome') || '').trim(), telefone = String(d.get('telefone') || '').trim();
       if (!nome || !telefone){ S.authErr = 'Preencha nome e telefone.'; renderAll(); return; }
@@ -1823,6 +1915,7 @@ function tick(t){
 /* ---------- início ---------- */
 (async function start(){
   if (MODE === 'google') loadGoogle(CFG.key);
+  try{ if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').then(r => { swReg = r; }).catch(() => {}); }catch(e){}
   await Store.init();
   setSync('wait');
   initAuth();
