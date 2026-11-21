@@ -257,6 +257,11 @@ label.f > span{font-weight:400;color:var(--cinza);font-size:12.5px}
 #destAC gmp-place-autocomplete{width:100%}
 a.btn{text-decoration:none}
 
+/* ============ FOTO DA MOTO ============ */
+.motoUp{display:flex;gap:12px;align-items:center;padding:10px;border:1.5px dashed var(--linha-forte);border-radius:14px;cursor:pointer;background:var(--sup2)}
+.motoUp img,.motoUp-vazio{width:96px;height:72px;border-radius:10px;object-fit:cover;flex:none;background:var(--sup);display:grid;place-items:center;font-size:30px;border:1px solid var(--linha)}
+.motofoto{display:block;width:100%;max-width:340px;aspect-ratio:4/3;object-fit:cover;border-radius:14px;border:1px solid var(--linha);background:var(--sup2)}
+.motofoto.mini{width:140px;border-radius:10px}
 /* ============ PIX ============ */
 .pixcard{background:linear-gradient(180deg,#EAF7F4,#F6FBFA);border:1.5px solid #9ED9CC;border-radius:16px;padding:14px;text-align:left}
 .pixcard > .row b:first-child{color:#0B6E5F;font-family:var(--f-disp);font-size:16px}
@@ -1202,6 +1207,7 @@ function driverCard(r){
   return `<div class="driver"><img class="avatar lg" src="${safeImg(p && p.foto, nome)}" alt="Foto de ${esc(nome)}">
     <div style="min-width:0;flex:1"><b style="font-size:17px">${esc(nome)}</b><div class="small muted">${esc(e ? e.nome : r.empresaNome || '')}</div>
     <div class="row mt" style="gap:8px;flex-wrap:wrap"><span class="plate">${esc(m.placa || '—')}</span></div></div></div>
+    ${p && fotoMotoOk(p.motoFoto) ? `<img class="motofoto mt" src="${p.motoFoto}" alt="Foto da moto de ${esc(nome)}">` : ''}
     <div class="kv mt"><dt>Moto</dt><dd>${esc([m.marca, m.modelo, m.ano].filter(Boolean).join(' ') || '—')}</dd>
     <dt>Cor</dt><dd><span class="row" style="gap:6px"><span class="sw" style="background:${corHex(m.cor)}"></span>${esc(m.cor || '—')}</span></dd>
     ${p && p.telefone ? `<dt>Telefone</dt><dd><a href="tel:${esc(p.telefone.replace(/[^\d+]/g, ''))}" style="color:var(--brand)">${esc(p.telefone)}</a></dd>` : ''}</div>`;
@@ -1317,7 +1323,7 @@ function pilotoEmpresaHtml(me){
     <div class="dash mt" style="grid-template-columns:repeat(3,1fr)"><div class="stat"><b>${BRL(e.tarifaBase)}</b><span>bandeirada</span></div><div class="stat"><b>${BRL(e.porKm)}</b><span>por km</span></div><div class="stat"><b>${BRL(e.minima)}</b><span>mínima</span></div></div>
     <div class="hr"></div><h3>Pilotos da empresa (${colegas.length})</h3>
     <div class="list mt">${colegas.map(p => `<div class="row" style="gap:10px"><img class="avatar" style="width:38px;height:38px" src="${safeImg(p.foto, p.nome)}" alt=""><div style="flex:1;min-width:0"><b class="small">${esc(p.nome)}${p.id === me.id ? ' (você)' : ''}</b><div class="small muted">${esc([p.moto && p.moto.modelo, p.moto && p.moto.placa].filter(Boolean).join(' · '))}</div></div><span class="tag ${p.online ? 'on' : ''}">${p.online ? 'online' : 'offline'}</span></div>`).join('')}</div>
-    <p class="small muted mt">Só a empresa e o administrador podem alterar estes dados.</p></div>`;
+    <p class="small muted mt">Só a empresa e o administrador podem alterar estes dados. A sua moto e a sua chave Pix você atualiza no Painel.</p></div>`;
 }
 function renderPiloto(){
   const me = pil(S.meuPiloto);
@@ -1348,6 +1354,7 @@ function renderPiloto(){
         <div class="row mt small" style="gap:8px;flex-wrap:wrap"><span class="sw" style="background:${corHex(m.cor)}"></span>${esc([m.marca, m.modelo].filter(Boolean).join(' '))} <span class="plate" style="font-size:11px;padding:2px 6px;border-top-width:3px">${esc(m.placa || '')}</span></div></div>
         <button class="switch ${me.online ? 'on' : ''}" data-act="toggleOnline" aria-label="Ficar online"></button></div>
         <div class="row between mt small"><span style="color:${me.online ? 'var(--ok-ink)' : 'var(--muted)'};font-weight:700">${me.online ? '● Você está online' : '○ Você está offline'}</span><span class="muted">Hoje: <b style="color:var(--text)">${feitas.length}</b> corridas · <b style="color:var(--text)">${BRL(feitas.reduce((s, r) => s + num(r.valor), 0))}</b></span></div>
+        ${logado ? `<button class="btn ghost sm block mt" data-act="minhaMoto">${fotoMotoOk(me.motoFoto) ? '✏️ Editar minha moto e Pix' : '📷 Adicionar foto da moto e chave Pix'}</button>` : ''}
         ${me.online ? `<div class="small mt" style="color:${S.gpsErr ? 'var(--danger-ink)' : 'var(--muted)'}">${S.gpsErr ? '⚠ GPS bloqueado — libere a localização para os passageiros verem você no mapa.' : S.myPos ? '📡 GPS ativo — sua posição é compartilhada com o passageiro.' : '📡 Ativando GPS…'}</div>` : ''}</div>`;
       if ((logado || S.role === 'local') && !prontoBasico()) top += prontidao(me);
       if (logado) top += pilotStats(me);
@@ -1495,7 +1502,8 @@ function renderAdmin(){
           <div class="small muted">${esc(e ? e.nome : '—')}${p.telefone ? ' · ' + esc(p.telefone) : ''}${p.cpf ? ' · CPF ' + esc(p.cpf) : ''}</div>
           <div class="small" style="color:${p.pix ? 'var(--text)' : 'var(--muted)'}">⚡ ${p.pix ? `Pix (${esc(pixTipoNome(p.pix.tipo))}): ${esc(pixMostra(p.pix))}` : 'sem chave Pix'}</div>
           <div class="small mt" style="color:${p.acessoCriado || p.uid ? 'var(--ok-ink)' : 'var(--warn-ink)'}">${p.email ? `🔑 ${esc(p.email)} · ${p.acessoCriado ? 'acesso com senha criado' : p.uid ? 'já entrou no app' : 'sem senha — edite para criar o acesso'}` : '⚠ sem acesso — edite para criar e-mail e senha'}</div>
-          <div class="row mt small" style="gap:8px;flex-wrap:wrap"><span class="sw" style="background:${corHex(m.cor)}"></span><span>${esc([m.marca, m.modelo, m.ano].filter(Boolean).join(' '))} · ${esc(m.cor || '')}</span><span class="plate" style="font-size:11px;padding:2px 6px;border-top-width:3px">${esc(m.placa || '')}</span></div></div></div>
+          <div class="row mt small" style="gap:8px;flex-wrap:wrap"><span class="sw" style="background:${corHex(m.cor)}"></span><span>${esc([m.marca, m.modelo, m.ano].filter(Boolean).join(' '))} · ${esc(m.cor || '')}</span><span class="plate" style="font-size:11px;padding:2px 6px;border-top-width:3px">${esc(m.placa || '')}</span></div>
+          ${fotoMotoOk(p.motoFoto) ? `<img class="motofoto mini mt" src="${p.motoFoto}" alt="Moto de ${esc(p.nome)}">` : `<div class="small mt" style="color:var(--muted)">📷 sem foto da moto</div>`}</div></div>
           <div class="row end mt" style="gap:8px"><button class="btn sm" data-act="convitePiloto" data-id="${esc(p.id)}" ${p.email ? '' : 'disabled'}>Convidar</button><span style="flex:1"></span><button class="btn ghost sm" data-act="editPiloto" data-id="${esc(p.id)}">Editar</button><button class="btn danger sm" data-act="delPiloto" data-id="${esc(p.id)}" aria-label="Excluir">🗑</button></div></div>`; }).join('')}</div>`;
     }
   }
@@ -2192,6 +2200,59 @@ function empresaForm(id){
       });
     });
 }
+function readFotoMoto(file){
+  return new Promise((res, rej) => {
+    const img = new Image(); const url = URL.createObjectURL(file);
+    img.onload = () => { const r = 4 / 3; let w = img.width, h = img.height; if (w / h > r) w = h * r; else h = w / r;
+      const c = document.createElement('canvas'); c.width = Math.min(640, Math.round(w)); c.height = Math.round(c.width / r);
+      c.getContext('2d').drawImage(img, (img.width - w) / 2, (img.height - h) / 2, w, h, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url); res(c.toDataURL('image/jpeg', 0.72)); };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('img')); }; img.src = url;
+  });
+}
+const fotoMotoOk = s => typeof s === 'string' && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(s) && s.length < 400000;
+function motoFotoCampo(foto){
+  return `<label class="motoUp" id="motoUp">${fotoMotoOk(foto) ? `<img id="motoPrev" src="${foto}" alt="Foto da moto">` : `<span id="motoPrev" class="motoUp-vazio">🏍️</span>`}
+    <div><b>${fotoMotoOk(foto) ? 'Trocar foto da moto' : 'Adicionar foto da moto'}</b><div class="small muted">Foto de lado, com a moto inteira e a cor bem visível</div></div><input type="file" accept="image/*" id="motoFotoIn" hidden></label>`;
+}
+function ligarMotoFoto(c, onFoto){
+  c.querySelector('#motoFotoIn').addEventListener('change', async ev => {
+    const file = ev.target.files[0]; if (!file) return;
+    try{ const f = await readFotoMoto(file); onFoto(f); const old = c.querySelector('#motoPrev'); const im = document.createElement('img'); im.id = 'motoPrev'; im.src = f; im.alt = 'Foto da moto'; old.replaceWith(im); c.querySelector('#motoUp b').textContent = 'Trocar foto da moto'; }
+    catch(e){ toast('Não consegui ler essa imagem'); }
+  });
+}
+/* o próprio piloto atualiza: dados da moto, foto da moto e chave Pix */
+function minhaMotoForm(){
+  const me = pil(S.meuPiloto); if (!me) return;
+  const m = me.moto || {}; let motoFoto = me.motoFoto || '';
+  openModal(`<div class="row between"><h3>Minha moto e Pix</h3><button class="xbtn" data-act="closeModal" aria-label="Fechar">✕</button></div>
+    <form id="fMoto" class="col mt">
+      ${motoFotoCampo(motoFoto)}
+      <div class="grid2"><label class="f">Marca *<select class="input" name="marca">${MARCAS.map(x => `<option ${x === m.marca ? 'selected' : ''}>${x}</option>`).join('')}</select></label><label class="f">Modelo *<input class="input" name="modelo" required maxlength="40" value="${esc(m.modelo || '')}" placeholder="Ex.: CG 160 Titan"></label></div>
+      <div class="grid2"><label class="f">Placa *<input class="input" name="placa" required maxlength="8" value="${esc(m.placa || '')}" placeholder="ABC1D23" style="text-transform:uppercase;letter-spacing:.1em;font-weight:700"></label><label class="f">Ano<input class="input" name="ano" inputmode="numeric" maxlength="4" value="${esc(m.ano || '')}" placeholder="2023"></label></div>
+      <div style="display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:700;color:var(--muted)">Cor da moto *<div class="colors">${MOTO_CORES.map(([n, c]) => `<label><input type="radio" name="cor" value="${n}" ${n === (m.cor || 'Preta') ? 'checked' : ''}><span class="sw" style="background:${c}"></span><em>${n}</em></label>`).join('')}</div></div>
+      ${pixCampos(me.pix, 'Minha chave Pix', 'Onde você recebe os pagamentos por Pix das corridas.')}
+      <p class="small" id="motoErr" style="display:none;color:var(--danger-ink);font-weight:700"></p>
+      <p class="small muted">Nome, foto, CPF e telefone são atualizados pela sua empresa.</p>
+      <div class="grid2 mt"><button type="button" class="btn ghost" data-act="closeModal">Cancelar</button><button class="btn">Salvar</button></div>
+    </form>`, c => {
+      ligarMotoFoto(c, f => { motoFoto = f; });
+      const erro = t => { const el = c.querySelector('#motoErr'); el.textContent = t; el.style.display = t ? '' : 'none'; if (t) el.scrollIntoView({block:'nearest'}); };
+      c.querySelector('#fMoto').addEventListener('submit', async ev => {
+        ev.preventDefault(); erro(''); const f = new FormData(ev.target);
+        const placa = String(f.get('placa')).trim().toUpperCase().replace(/[\s-]/g, '');
+        if (!/^[A-Z]{3}\d[A-Z0-9]\d{2}$/.test(placa)){ erro('Placa inválida. Use ABC1234 ou ABC1D23'); return; }
+        const modelo = String(f.get('modelo')).trim(); if (!modelo){ erro('Informe o modelo da moto.'); return; }
+        const px = pixLer(f); if (px.erro){ erro(px.erro); return; }
+        const btn = ev.target.querySelector('button.btn:not(.ghost)'); btn.disabled = true; btn.textContent = 'Salvando…';
+        try{
+          await Store.update('pilotos', me.id, {moto:{marca:f.get('marca'), modelo, ano:String(f.get('ano')).trim(), cor:f.get('cor') || 'Preta', placa}, motoFoto:motoFoto || null, pix:px.pix});
+          closeModal(); toast('Moto e Pix atualizados! ✅');
+        }catch(e){ console.error(e); erro('Não foi possível salvar. Tente de novo.'); btn.disabled = false; btn.textContent = 'Salvar'; }
+      });
+    });
+}
 function readPhoto(file){
   return new Promise((res, rej) => {
     const img = new Image(); const url = URL.createObjectURL(file);
@@ -2215,7 +2276,7 @@ function mostrarAcessoPiloto(nome, email, senha){
 function pilotoForm(id, empId){
   const p = id ? pil(id) : null;
   const v = p || {empresaId:empId || S.filtroEmp || (escopoEmpresas()[0] && escopoEmpresas()[0].id) || '', nome:'', telefone:'', cnh:'', foto:'', moto:{marca:'Honda', modelo:'', ano:'', cor:'Preta', placa:''}};
-  const m = v.moto || {}; let foto = v.foto || '';
+  const m = v.moto || {}; let foto = v.foto || ''; let motoFoto = v.motoFoto || '';
   const temAcesso = !!(p && p.acessoCriado && p.uid);
   openModal(`<h3>${p ? 'Editar piloto' : 'Cadastrar mototaxista'}</h3>
     <form id="fPil" class="col mt">
@@ -2233,6 +2294,7 @@ function pilotoForm(id, empId){
       <p class="small" id="pilErr" style="display:none;color:var(--danger-ink);font-weight:700"></p>
       ${pixCampos(v.pix, 'Chave Pix do piloto', 'Onde o piloto recebe os pagamentos por Pix das corridas.')}
       <div class="hr" style="margin:4px 0"></div><h3>Dados da moto</h3>
+      ${motoFotoCampo(motoFoto)}
       <div class="grid2"><label class="f">Marca *<select class="input" name="marca">${MARCAS.map(x => `<option ${x === m.marca ? 'selected' : ''}>${x}</option>`).join('')}</select></label><label class="f">Modelo *<input class="input" name="modelo" required maxlength="40" value="${esc(m.modelo)}" placeholder="Ex.: CG 160 Titan"></label></div>
       <div class="grid2"><label class="f">Placa *<input class="input" name="placa" required maxlength="8" value="${esc(m.placa)}" placeholder="ABC1D23" style="text-transform:uppercase;letter-spacing:.1em;font-weight:700"></label><label class="f">Ano<input class="input" name="ano" inputmode="numeric" maxlength="4" value="${esc(m.ano)}" placeholder="2023"></label></div>
       <div style="display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:700;color:var(--muted)">Cor da moto *<div class="colors">${MOTO_CORES.map(([n, c]) => `<label><input type="radio" name="cor" value="${n}" ${n === (m.cor || 'Preta') ? 'checked' : ''}><span class="sw" style="background:${c}"></span><em>${n}</em></label>`).join('')}</div></div>
@@ -2242,6 +2304,7 @@ function pilotoForm(id, empId){
         const file = ev.target.files[0]; if (!file) return;
         try{ foto = await readPhoto(file); c.querySelector('#phPrev').src = foto; }catch(e){ toast('Não consegui ler essa imagem'); }
       });
+      ligarMotoFoto(c, f => { motoFoto = f; });
       const cpfIn = c.querySelector('[name=cpf]'); cpfIn.addEventListener('input', () => { cpfIn.value = fmtDoc('cpf', cpfIn.value); });
       const rs = c.querySelector('#pilReset'); if (rs) rs.addEventListener('click', async () => {
         try{ await Store.authMod.sendPasswordResetEmail(Store.auth, v.email); toast('E-mail enviado para ' + v.email); }catch(e){ toast(authMsg(e)); } });
@@ -2264,7 +2327,7 @@ function pilotoForm(id, empId){
           moto:{marca:f.get('marca'), modelo:f.get('modelo').trim(), ano:f.get('ano').trim(), cor:f.get('cor') || 'Preta', placa},
           online:p ? !!p.online : false, criadoEm:p ? p.criadoEm || Date.now() : Date.now()};
         if (!d.nome || !d.telefone || !d.moto.modelo || !d.empresaId){ erro('Preencha os campos obrigatórios'); return; }
-        const pxP = pixLer(f); if (pxP.erro){ erro(pxP.erro); return; } d.pix = pxP.pix;
+        const pxP = pixLer(f); if (pxP.erro){ erro(pxP.erro); return; } d.pix = pxP.pix; d.motoFoto = motoFoto || null;
         const btn = ev.target.querySelector('button.btn:not(.ghost)'); btn.disabled = true; btn.textContent = 'Salvando…';
         const pid = p ? p.id : uid();
         try{
@@ -2385,6 +2448,7 @@ const ACT = {
   eOrd:d => { S.eOrd = d.v; renderAdmin(); },
   pilotoDetalhe:d => pilotoDetalheModal(d.id),
   pixQr:d => pixQrModal(d.id),
+  minhaMoto:() => { closeModal(); minhaMotoForm(); },
   pixCopiar:d => { const r = S.corridas.find(x => x.id === d.id) || (S.minhaLocal && S.minhaLocal.id === d.id ? S.minhaLocal : null); const px = r && pixDaCorrida(r); if (!px) return;
     d.v === 'cc' ? copiarTexto(pixCopiaCola(px, r.valor, 'MOTOJA' + r.id), 'Pix copia e cola copiado! Cole no app do banco.') : copiarTexto(px.chave, 'Chave Pix copiada!'); },
   pPer:d => { S.pPer = d.v; renderAll(); },
@@ -2720,7 +2784,7 @@ function contaModal(){
     }
     openModal(`<div class="row between"><h3>${S.role === 'master' ? '👑 Conta master' : 'Minha conta de piloto'}</h3><button class="xbtn" data-act="closeModal" aria-label="Fechar">✕</button></div>
       <div class="driver mt"><img class="avatar lg" src="${me ? safeImg(me.foto, me.nome) : avatarFor('M', '#0E6B45')}" alt=""><div><b style="font-size:17px">${esc(me ? me.nome : (S.user.displayName || 'Administrador'))}</b><div class="small muted">${esc(userEmail())}</div>${e ? `<div class="small muted">${esc(e.nome)}</div>` : ''}</div></div>
-      ${me ? `<p class="note mt">Seus dados (foto, CPF, moto, placa) são atualizados pela sua empresa. Peça a ela se precisar mudar algo.</p>` : `<p class="note mt">Você tem acesso total: empresas, pilotos, clientes e corridas. Também pode testar o app pela aba <b>Passageiro</b>.</p>`}
+      ${me ? `<p class="note mt">A moto (dados e foto) e a chave Pix você mesmo atualiza. Nome, foto, CPF e telefone são atualizados pela sua empresa.</p><button class="btn block mt" data-act="minhaMoto">Editar minha moto e Pix</button>` : `<p class="note mt">Você tem acesso total: empresas, pilotos, clientes e corridas. Também pode testar o app pela aba <b>Passageiro</b>.</p>`}
       ${me ? `<dl class="kv mt"><dt>CPF</dt><dd>${esc(me.cpf || '—')}</dd><dt>Minha chave Pix</dt><dd>${me.pix ? `${esc(pixMostra(me.pix))} <span class="muted small">(${esc(pixTipoNome(me.pix.tipo))})</span>` : 'não cadastrada'}</dd></dl>` : ''}
       ${me && temSenha() ? `<div class="hr"></div><h3>Trocar senha</h3>
         <form id="fSenha" class="col mt"><label class="f">Senha atual<input class="input" name="atual" type="password" required autocomplete="current-password"></label>
