@@ -929,7 +929,7 @@ const S = {
   minha:LS.get('mtu_minha', null), minhaLocal:null,
   meuPiloto:LS.get('mtu_piloto', ''), myPos:null,
   admTab:'empresas', filtroEmp:'', advancing:'', sheetMin:false,
-  authPerfil:(window.APP_PILOTO || location.hash === '#piloto') ? 'piloto' : 'passageiro', pilTab:'entrar',
+  authPerfil:(window.APP_PILOTO || location.hash === '#piloto') ? 'piloto' : location.hash === '#empresa' ? 'empresa' : 'passageiro', pilTab:'entrar',
 };
 const emp = id => S.empresas.find(e => e.id === id);
 const pil = id => S.pilotos.find(p => p.id === id);
@@ -1116,6 +1116,10 @@ async function setupAutocomplete(){
 }
 const _paramE = new URLSearchParams(location.search).get('e');
 if (_paramE) LS.set('mtu_empresaFixa', _paramE);
+/* link geral com #empresa, #master ou #piloto tira o aparelho do modo "link do cliente" */
+if (!_paramE && ['#empresa', '#master', '#piloto'].includes(location.hash)) LS.set('mtu_empresaFixa', '');
+/* aberto pelo link da empresa para clientes: só a entrada de passageiro aparece */
+const modoCliente = () => !!LS.get('mtu_empresaFixa', '') && !window.APP_PILOTO;
 function empresaFixa(){ const id = LS.get('mtu_empresaFixa', null); const e = id && S.empresas.find(x => x.id === id); return e || null; }
 function empresaOpts(km){
   const fixa = empresaFixa();
@@ -2166,7 +2170,7 @@ function showSetup(first){
 /* ================= eventos ================= */
 const ACT = {
   pAba:d => { S.pAba = d.v; renderAll(); },
-  authPerfil:d => { S.authPerfil = d.v; S.authErr = ''; if (d.v === 'passageiro' && S.role === 'cliente') S.role = undefined; renderAll(); },
+  authPerfil:d => { if (modoCliente() && d.v !== 'passageiro') return; S.authPerfil = d.v; S.authErr = ''; if (d.v === 'passageiro' && S.role === 'cliente') S.role = undefined; renderAll(); },
   verSenha:(d, el) => { const i = el.parentElement.querySelector('input'); const ver = i.type === 'password'; i.type = ver ? 'text' : 'password'; el.textContent = ver ? 'Ocultar' : 'Mostrar'; },
   resetSenhaEmpresa:async d => { const e = emp(d.id); if (!e || !e.emailAcesso) return; try{ await Store.authMod.sendPasswordResetEmail(Store.auth, e.emailAcesso); toast(`Link enviado para ${e.emailAcesso}.`); }catch(err){ toast(authMsg(err)); } },
   pilTab:d => { S.pilTab = d.v; S.authErr = ''; renderAll(); },
@@ -2397,7 +2401,8 @@ function authHtml(gate){
       <button class="btn block mt2" data-act="sair">Entrar com outro e-mail</button>
       <button class="btn ghost block mt" data-act="authPerfil" data-v="passageiro">Usar como passageiro</button></div>`;
   const perfis = [['passageiro', 'Passageiro'], ['piloto', 'Piloto'], ['empresa', 'Empresa']];
-  const perfilSeg = window.APP_PILOTO ? '' : `<div class="seg seg3" role="tablist">${perfis.map(([k, l]) => `<button role="tab" aria-selected="${S.authPerfil === k}" class="${S.authPerfil === k ? 'on' : ''}" data-act="authPerfil" data-v="${k}">${l}</button>`).join('')}</div>`;
+  if (modoCliente()) S.authPerfil = 'passageiro';
+  const perfilSeg = window.APP_PILOTO || modoCliente() ? '' : `<div class="seg seg3" role="tablist">${perfis.map(([k, l]) => `<button role="tab" aria-selected="${S.authPerfil === k}" class="${S.authPerfil === k ? 'on' : ''}" data-act="authPerfil" data-v="${k}">${l}</button>`).join('')}</div>`;
   if (gate === 'naoEmpresa') return `${HERO()}<div class="authcard"><h2 style="text-align:center">Este e-mail não é de uma empresa</h2>
       <p class="muted mt" style="text-align:center">O e-mail <b style="color:var(--text)">${esc(userEmail())}</b> não tem acesso de empresa. O acesso é criado pelo administrador do MotoJá no cadastro da empresa.</p>
       <button class="btn block mt2" data-act="sair">Entrar com outro e-mail</button></div>`;
