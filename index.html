@@ -943,16 +943,30 @@ function myRide(){
 }
 const pathCache = {};
 const ridePath = (r, k) => { const s = r[k]; if (!s) return []; return pathCache[s] || (pathCache[s] = decPath(s)); };
+/* posição exibida da moto: corridas reais usam SEMPRE o GPS do celular do piloto,
+   com deslize suave entre uma atualização e outra; só a demonstração é simulada */
+const deslize = {};
+function posSuave(id, gp){
+  const c = deslize[id];
+  if (!c){ deslize[id] = {from:ll(gp), to:ll(gp), t0:0, key:gp.t}; return ll(gp); }
+  if (c.key !== gp.t){ c.from = posAtual(c); c.to = ll(gp); c.t0 = Date.now(); c.key = gp.t; }
+  return posAtual(c);
+}
+function posAtual(c){ const k = clamp((Date.now() - c.t0) / 2500, 0, 1); const e = k * (2 - k); return {lat:c.from.lat + (c.to.lat - c.from.lat) * e, lng:c.from.lng + (c.to.lng - c.from.lng) * e}; }
 function motoState(r){
   let path, t0, target;
   if (r.status === 'aceita'){ path = ridePath(r, 'rotaBusca'); if (!path.length && r.inicio) path = [ll(r.inicio), ll(r.origem)]; t0 = r.aceitaEm; target = r.origem; }
   else if (r.status === 'em_andamento'){ path = ridePath(r, 'rota'); if (!path.length) path = [ll(r.origem), ll(r.destino)]; t0 = r.iniciadaEm; target = r.destino; }
   else return null;
   const sp = r.demo ? DEMO_SPEED : SPEED;
-  const gp = r.posPiloto;
-  if (!r.demo && gp && Date.now() - gp.t < GPS_FRESH){
-    const rem = hav(gp, target) * 1.25;
-    return {pos:ll(gp), rem, prog:rem < 60 ? 1 : 0, sp, real:true};
+  if (!r.demo){
+    // GPS ao vivo do piloto; antes da 1ª atualização usa a posição do celular no momento do aceite
+    const gp = r.posPiloto || (r.inicio ? {...r.inicio, t:r.aceitaEm || 0} : null);
+    if (!gp) return null;
+    const pos = posSuave(r.id, gp);
+    const rem = hav(pos, target) * 1.25;
+    const idade = Date.now() - (gp.t || 0);
+    return {pos, rem, prog:rem < 60 ? 1 : 0, sp, real:true, idade, novo:gp.t};
   }
   const L = pathLen(path); const d = clamp((Date.now() - (t0 || Date.now())) / 1000 * sp, 0, L);
   return {pos:pointAt(path, d), prog:L ? d / L : 1, rem:L - d, sp};
@@ -1231,9 +1245,10 @@ async function pedir(){
 }
 async function aceitarComo(r, p, demo, gps){
   let inicio = gps && hav(gps, r.origem) < 40000 ? {lat:gps.lat, lng:gps.lng} : null;
-  if (!inicio){ const ang = (hash(p.id + r.id) % 628) / 100; inicio = offsetPoint(ll(r.origem), 900 + hash(r.id) % 1200, ang); }
+  if (!inicio && gps && !demo) inicio = {lat:gps.lat, lng:gps.lng}; // piloto longe (>40 km): mesmo assim é a posição real
+  if (!inicio){ const ang = (hash(p.id + r.id) % 628) / 100; inicio = offsetPoint(ll(r.origem), 900 + hash(r.id) % 1200, ang); } // só na demonstração
   const rb = await calcRoute(inicio, r.origem);
-  return Store.claim(r.id, {status:'aceita', pilotoId:p.id, pilotoNome:p.nome, moto:p.moto || {}, aceitaEm:Date.now(), inicio, rotaBusca:encPath(rb.path), demo:!!demo, ofertaPara:null, ofertaAte:null},
+  return Store.claim(r.id, {status:'aceita', pilotoId:p.id, pilotoNome:p.nome, moto:p.moto || {}, aceitaEm:Date.now(), inicio, posPiloto:demo ? null : {...inicio, t:Date.now()}, rotaBusca:encPath(rb.path), demo:!!demo, ofertaPara:null, ofertaAte:null},
     d => demo || d.modo !== 'vez' || d.ofertaPara === p.id);
 }
 async function simular(){
@@ -1399,7 +1414,7 @@ function pilotGps(){
 function onPilotPos(){
   const me = pil(S.meuPiloto); if (!me || !S.myPos) return;
   const now = Date.now(); const act = myActive();
-  if (act && !act.demo && now - lastRideWrite > 8000){ lastRideWrite = now; Store.update('corridas', act.id, {posPiloto:{...S.myPos, t:now}}).catch(() => {}); }
+  if (act && !act.demo && now - lastRideWrite > 4000){ lastRideWrite = now; Store.update('corridas', act.id, {posPiloto:{...S.myPos, t:now}}).catch(() => {}); }
   const moved = !lastPilotWrite.pos || hav(lastPilotWrite.pos, S.myPos) > 30;
   if (!act && (now - lastPilotWrite.t > 60000 || (moved && now - lastPilotWrite.t > 20000))){ lastPilotWrite = {t:now, pos:S.myPos}; Store.update('pilotos', me.id, {pos:{...S.myPos, t:now}}).catch(() => {}); }
 }
@@ -1408,8 +1423,12 @@ async function aceitar(id){
   if (myActive()){ toast('Finalize sua corrida atual primeiro.'); return; }
   const r = S.corridas.find(x => x.id === id);
   if (!r || r.status !== 'procurando'){ toast('Essa corrida já foi aceita por outro piloto.'); return; }
-  toast('Aceitando…');
-  const gps = S.myPos || await getGps(5000);
+  toast('Pegando sua localização…');
+  // a corrida usa a localização real do celular do piloto
+  let gps = S.myPos || await getGps(8000);
+  if (!gps && me.pos && Date.now() - (me.pos.t || 0) < 5 * 6e4) gps = me.pos;
+  if (!gps){ toast('Ligue a localização (GPS) do celular e permita o acesso para aceitar a corrida.'); S.gpsErr = true; renderPiloto(); return; }
+  S.myPos = S.myPos || {lat:gps.lat, lng:gps.lng};
   pararAlarme();
   const ok = await aceitarComo(r, me, false, gps);
   toast(ok ? 'Corrida aceita! Vá até o passageiro.' : 'Essa corrida já foi aceita por outro piloto.');
@@ -2590,9 +2609,10 @@ function tick(t){
     const r = myRide(); const m = r && motoState(r);
     if (m){
       pmap.marker('moto', m.pos, MK.moto(motoCor(r)), 5);
+      if (m.real && m.novo && S._seguir !== r.id + m.novo && Date.now() - (S._seguirT || 0) > 12000){ S._seguir = r.id + m.novo; S._seguirT = Date.now(); const g = r.posPiloto || r.inicio; g && pmap.fit([ll(g), r.status === 'aceita' ? r.origem : r.destino], passPad()); }
       const el = $('#etaTxt');
       if (el){ const txt = r.status === 'aceita' ? (m.prog >= 1 ? 'Seu piloto chegou! 🎉' : `Chega em ${fmtRem(m.rem, m.sp)}`) : (m.prog >= 1 ? 'Chegando ao destino…' : `Destino em ${fmtRem(m.rem, m.sp)}`); if (el.textContent !== txt) el.textContent = txt; }
-      const gt = $('#gpsTag'); if (gt){ const tx = m.real ? '📡 GPS ao vivo' : '🕒 posição estimada'; if (gt.textContent !== tx) gt.textContent = tx; }
+      const gt = $('#gpsTag'); if (gt){ const tx = !m.real ? '🕒 demonstração' : m.idade < GPS_FRESH ? '📡 GPS do piloto ao vivo' : `📡 última posição há ${m.idade < 3600e3 ? Math.round(m.idade / 6e4) || 1 : '+60'} min`; if (gt.textContent !== tx) gt.textContent = tx; }
       if (r.demo && m.prog >= 1 && S.advancing !== r.id + r.status){
         S.advancing = r.id + r.status;
         setTimeout(() => { const c = myRide(); if (!c || c.id !== r.id || c.status !== r.status) return;
